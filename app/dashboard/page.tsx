@@ -435,7 +435,19 @@ function VentasTab({ ventas, grupos, inventario, onReload, hoy }: any) {
     await supabase.from('ventas').update({estado:'pagado'}).eq('grupo_id',id)
     onReload()
   }
+const [editando, setEditando] = useState<any>(null)
 
+async function guardarEdicion() {
+  if(!editando) return
+  await supabase.from('ventas').update({
+    cliente: editando.cliente,
+    monto: parseFloat(editando.monto)||0,
+    nota: editando.nota,
+    descripcion: editando.descripcion
+  }).eq('id', editando.id)
+  setEditando(null)
+  onReload()
+}
   async function eliminarVenta(id:string) {
     await supabase.from('ventas').delete().eq('id',id)
     onReload()
@@ -559,7 +571,7 @@ function VentasTab({ ventas, grupos, inventario, onReload, hoy }: any) {
                   <td style={{padding:'8px 10px'}}>{v.cliente||'—'}</td>
                   <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:v.estado==='pagado'?'#EAF3DE':v.estado==='parcial'?'#FAEEDA':'#FCEBEB',color:v.estado==='pagado'?'#3B6D11':v.estado==='parcial'?'#854F0B':'#A32D2D'}}>{v.estado==='pagado'?'Pagado':v.estado==='parcial'?'Parcial':'Debe'}</span></td>
                   <td style={{padding:'8px 10px',fontWeight:500}}>{fmt(v.monto)}</td>
-                  <td style={{padding:'8px 10px'}}><button onClick={()=>eliminarVenta(v.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:16}}>×</button></td>
+                  <td style={{padding:'8px 10px'}}><div style={{display:'flex',gap:4}}><button onClick={()=>setEditando({...v})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11,color:'#444'}}>✏</button><button onClick={()=>eliminarVenta(v.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:16}}>×</button></div></td>
                 </tr>
               ))}
               {listaVentas.length===0&&<tr><td colSpan={7} style={{textAlign:'center',color:'#666',padding:16}}>Sin ventas registradas</td></tr>}
@@ -567,7 +579,37 @@ function VentasTab({ ventas, grupos, inventario, onReload, hoy }: any) {
           </table>
         </div>
       </div>
-
+{editando && (
+  <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginTop:12}}>
+    <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
+      <span style={{fontSize:13,fontWeight:500}}>✏ Editar venta</span>
+      <button onClick={()=>setEditando(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#999'}}>×</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+      <div>
+        <div style={{marginBottom:9}}>
+          <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Servicio / Producto</label>
+          <input value={editando.descripcion||''} onChange={e=>setEditando({...editando,descripcion:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+        </div>
+        <div style={{marginBottom:9}}>
+          <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Cliente</label>
+          <input value={editando.cliente||''} onChange={e=>setEditando({...editando,cliente:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+        </div>
+      </div>
+      <div>
+        <div style={{marginBottom:9}}>
+          <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Monto ($)</label>
+          <input type="number" value={editando.monto||''} onChange={e=>setEditando({...editando,monto:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+        </div>
+        <div style={{marginBottom:9}}>
+          <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Notas</label>
+          <input value={editando.nota||''} onChange={e=>setEditando({...editando,nota:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+        </div>
+      </div>
+    </div>
+    <button onClick={guardarEdicion} style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>✓ Guardar cambios</button>
+  </div>
+)}
       {/* Deudas */}
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:10,color:'#A32D2D'}}>Deudas pendientes</div>
