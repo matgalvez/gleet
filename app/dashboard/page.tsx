@@ -79,7 +79,7 @@ export default function Dashboard() {
 
       {/* NAV */}
       <div style={{ display: 'flex', gap: 4, padding: '8px 16px', background: '#f0f0f0', borderBottom: '1px solid #e0e0e0', overflowX: 'auto' }}>
-        {[['inicio','Inicio'],['agenda','Agenda'],['ventas','Ventas'],['historial','Historial'],['inventario','Inventario'],['proveedores','Proveedores'],['reportes','Reportes']].map(([id, label]) => (
+        {[['inicio','Inicio'],['agenda','Agenda'],['ventas','Ventas'],['historial','Historial'],['inventario','Inventario'],['proveedores','Proveedores'],['reportes','Reportes'],['topclientes','Top Clientas']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ padding: '6px 14px', borderRadius: 8, border: tab === id ? '1px solid #ccc' : '1px solid transparent', background: tab === id ? 'white' : 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: tab === id ? 500 : 400, whiteSpace: 'nowrap' }}>
             {label}
           </button>
@@ -183,6 +183,7 @@ export default function Dashboard() {
         {tab === 'inventario' && <InventarioTab inventario={inventario} onReload={cargarDatos} />}
         {tab === 'proveedores' && <ProveedoresTab inventario={inventario} onReload={cargarDatos} />}
         {tab === 'reportes' && <ReportesTab ventas={ventas} />}
+{tab === 'topclientes' && <TopClientasTab ventas={ventas} grupos={grupos} />}
       </div>
     </div>
   )
@@ -1030,6 +1031,96 @@ function ReportesTab({ ventas }: any) {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  )
+}
+function TopClientasTab({ ventas, grupos }: any) {
+  const fmt = (n:number) => n>0?'$'+Math.round(n).toLocaleString('es-CL'):'—'
+  const anoActual = new Date().getFullYear()
+
+  // Obtener todos los años con ventas
+  const anos = [...new Set(ventas.map((v:any)=>new Date(v.fecha+'T12:00:00').getFullYear()))].sort((a,b)=>b-a)
+  if(!anos.includes(anoActual)) anos.unshift(anoActual)
+
+  // Agrupar por clienta y año
+  const resumen:{[cli:string]:{[ano:number]:number, debe:number, visitas:number}} = {}
+  ventas.forEach((v:any)=>{
+    if(!v.cliente) return
+    const ano = new Date(v.fecha+'T12:00:00').getFullYear()
+    if(!resumen[v.cliente]) resumen[v.cliente]={debe:0,visitas:0}
+    resumen[v.cliente][ano] = (resumen[v.cliente][ano]||0) + v.monto
+  })
+  grupos.forEach((g:any)=>{
+    if(!g.cliente||g.estado==='pagado') return
+    if(!resumen[g.cliente]) resumen[g.cliente]={debe:0,visitas:0}
+    resumen[g.cliente].debe += g.total-g.pagado
+  })
+  const visitasPorCliente:{[k:string]:Set<string>}={}
+  ventas.forEach((v:any)=>{
+    if(!v.cliente||!v.grupo_id) return
+    if(!visitasPorCliente[v.cliente]) visitasPorCliente[v.cliente]=new Set()
+    visitasPorCliente[v.cliente].add(v.grupo_id)
+  })
+  Object.entries(visitasPorCliente).forEach(([cli,set])=>{
+    if(resumen[cli]) resumen[cli].visitas=set.size
+  })
+
+  // Ordenar por año actual de mayor a menor
+  const lista = Object.entries(resumen).sort((a,b)=>(b[1][anoActual]||0)-(a[1][anoActual]||0))
+
+  return (
+    <div>
+      <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
+        <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>⭐ Top Clientas</div>
+        <div style={{fontSize:11,color:'#666',marginBottom:12}}>Ordenadas por gasto en {anoActual}</div>
+        {lista.length===0&&<p style={{fontSize:12,color:'#666'}}>Sin datos aún. Agrega ventas para ver el ranking.</p>}
+        {lista.length>0&&(
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+              <thead>
+                <tr>
+                  <th style={{textAlign:'left',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>#</th>
+                  <th style={{textAlign:'left',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Clienta</th>
+                  <th style={{textAlign:'center',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Visitas</th>
+                  {anos.map(a=>(
+                    <th key={a} style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:a===anoActual?'#1a1a1a':'#666',fontWeight:a===anoActual?700:400,fontSize:11}}>{a}</th>
+                  ))}
+                  <th style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Deuda</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map(([cli,d],i)=>(
+                  <tr key={cli} style={{borderBottom:'1px solid #f5f5f5',background:i%2===0?'white':'#fafafa'}}>
+                    <td style={{padding:'10px 10px'}}>
+                      <div style={{width:24,height:24,borderRadius:'50%',background:i===0?'#c8a96e':i===1?'#b0b0b0':i===2?'#d4a57a':'#f0ede6',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:i<3?'white':'#888'}}>
+                        {i+1}
+                      </div>
+                    </td>
+                    <td style={{padding:'10px 10px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:32,height:32,borderRadius:'50%',background:'#f0ede6',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:500,flexShrink:0}}>{cli[0]}</div>
+                        <span style={{fontWeight:500}}>{cli}</span>
+                      </div>
+                    </td>
+                    <td style={{padding:'10px 10px',textAlign:'center',color:'#666'}}>{d.visitas}</td>
+                    {anos.map(a=>(
+                      <td key={a} style={{padding:'10px 10px',textAlign:'right',fontWeight:a===anoActual?500:400,color:a===anoActual?(d[a]>0?'#1a1a1a':'#ccc'):'#888'}}>
+                        {fmt(d[a]||0)}
+                      </td>
+                    ))}
+                    <td style={{padding:'10px 10px',textAlign:'right'}}>
+                      {d.debe>0
+                        ?<span style={{color:'#A32D2D',fontWeight:500,fontSize:11}}>{fmt(d.debe)}</span>
+                        :<span style={{color:'#3B6D11',fontSize:11}}>✓</span>
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
