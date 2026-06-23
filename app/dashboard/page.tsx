@@ -1039,22 +1039,20 @@ function TopClientasTab({ ventas, grupos }: any) {
   const fmt = (n:number) => n>0?'$'+Math.round(n).toLocaleString('es-CL'):'—'
   const anoActual = new Date().getFullYear()
 
-  // Obtener todos los años con ventas
-  const anos = [...new Set(ventas.map((v:any)=>new Date(v.fecha+'T12:00:00').getFullYear()))].sort((a:any,b:any)=>b-a)
+  const anos = [...new Set<number>(ventas.map((v:any)=>new Date(v.fecha+'T12:00:00').getFullYear()))].sort((a,b)=>b-a)
   if(!anos.includes(anoActual)) anos.unshift(anoActual)
 
-  // Agrupar por clienta y año
-  const resumen:{[cli:string]:{[ano:number]:number, debe:number, visitas:number}} = {}
+  const resumen:{[cli:string]:{[key:string]:number}} = {}
   ventas.forEach((v:any)=>{
     if(!v.cliente) return
-    const ano = new Date(v.fecha+'T12:00:00').getFullYear()
+    const ano = String(new Date(v.fecha+'T12:00:00').getFullYear())
     if(!resumen[v.cliente]) resumen[v.cliente]={debe:0,visitas:0}
     resumen[v.cliente][ano] = (resumen[v.cliente][ano]||0) + v.monto
   })
   grupos.forEach((g:any)=>{
     if(!g.cliente||g.estado==='pagado') return
     if(!resumen[g.cliente]) resumen[g.cliente]={debe:0,visitas:0}
-    resumen[g.cliente].debe += g.total-g.pagado
+    resumen[g.cliente]['debe'] += g.total-g.pagado
   })
   const visitasPorCliente:{[k:string]:Set<string>}={}
   ventas.forEach((v:any)=>{
@@ -1063,11 +1061,10 @@ function TopClientasTab({ ventas, grupos }: any) {
     visitasPorCliente[v.cliente].add(v.grupo_id)
   })
   Object.entries(visitasPorCliente).forEach(([cli,set])=>{
-    if(resumen[cli]) resumen[cli].visitas=set.size
+    if(resumen[cli]) resumen[cli]['visitas']=set.size
   })
 
-  // Ordenar por año actual de mayor a menor
-  const lista = Object.entries(resumen).sort((a,b)=>(b[1][anoActual]||0)-(a[1][anoActual]||0))
+  const lista = Object.entries(resumen).sort((a,b)=>(b[1][String(anoActual)]||0)-(a[1][String(anoActual)]||0))
 
   return (
     <div>
@@ -1084,7 +1081,7 @@ function TopClientasTab({ ventas, grupos }: any) {
                   <th style={{textAlign:'left',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Clienta</th>
                   <th style={{textAlign:'center',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Visitas</th>
                   {anos.map(a=>(
-                    <th key={a} style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:a===anoActual?'#1a1a1a':'#666',fontWeight:a===anoActual?700:400,fontSize:11}}>{a}</th>
+                    <th key={String(a)} style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:a===anoActual?'#1a1a1a':'#666',fontWeight:a===anoActual?700:400,fontSize:11}}>{a}</th>
                   ))}
                   <th style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Deuda</th>
                 </tr>
@@ -1103,15 +1100,15 @@ function TopClientasTab({ ventas, grupos }: any) {
                         <span style={{fontWeight:500}}>{cli}</span>
                       </div>
                     </td>
-                    <td style={{padding:'10px 10px',textAlign:'center',color:'#666'}}>{d.visitas}</td>
+                    <td style={{padding:'10px 10px',textAlign:'center',color:'#666'}}>{d['visitas']||0}</td>
                     {anos.map(a=>(
-                      <td key={a} style={{padding:'10px 10px',textAlign:'right',fontWeight:a===anoActual?500:400,color:a===anoActual?(d[a]>0?'#1a1a1a':'#ccc'):'#888'}}>
-                        {fmt(d[a]||0)}
+                      <td key={String(a)} style={{padding:'10px 10px',textAlign:'right',fontWeight:a===anoActual?500:400,color:a===anoActual?(d[String(a)]>0?'#1a1a1a':'#ccc'):'#888'}}>
+                        {fmt(d[String(a)]||0)}
                       </td>
                     ))}
                     <td style={{padding:'10px 10px',textAlign:'right'}}>
-                      {d.debe>0
-                        ?<span style={{color:'#A32D2D',fontWeight:500,fontSize:11}}>{fmt(d.debe)}</span>
+                      {d['debe']>0
+                        ?<span style={{color:'#A32D2D',fontWeight:500,fontSize:11}}>{fmt(d['debe'])}</span>
                         :<span style={{color:'#3B6D11',fontSize:11}}>✓</span>
                       }
                     </td>
