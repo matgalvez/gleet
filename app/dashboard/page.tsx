@@ -1040,7 +1040,7 @@ function TopClientasTab({ ventas, grupos }: any) {
   const anoActual = new Date().getFullYear()
 
   // Obtener todos los años con ventas
-  const anos = [...new Set(ventas.map((v:any)=>new Date(v.fecha+'T12:00:00').getFullYear()))].sort((a,b)=>b-a)
+  const anos = [...new Set(ventas.map((v:any)=>new Date(v.fecha+'T12:00:00').getFullYear()))].sort((a:any,b:any)=>b-a)
   if(!anos.includes(anoActual)) anos.unshift(anoActual)
 
   // Agrupar por clienta y año
