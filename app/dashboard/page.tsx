@@ -277,7 +277,27 @@ setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'
 
   async function guardarEdicion(){
     if(!editando) return
-    await supabase.from('ventas').update({monto:parseFloat(editando.monto)||0,nota:editando.nota}).eq('id',editando.id)
+    const nuevoMonto=parseFloat(editando.monto)||0
+    const cantidad=editando.tipo==='producto'?(parseInt(editando.cantidad)||1):1
+    await supabase.from('ventas').update({
+      tipo:editando.tipo,
+      servicio_id:editando.tipo==='servicio'?(editando.servicio_id||null):null,
+      producto_id:editando.tipo==='producto'?(editando.producto_id||null):null,
+      monto:nuevoMonto,
+      cantidad,
+      nota:editando.nota
+    }).eq('id',editando.id)
+    if(editando.grupo_id){
+      const grupo=grupos.find((g:any)=>g.id===editando.grupo_id)
+      if(grupo){
+        const diff=nuevoMonto-(editando.montoOriginal||0)
+        await supabase.from('grupos_venta').update({
+          cliente_id:editando.cliente_id||null,
+          fecha:editando.fecha,
+          total:grupo.total+diff
+        }).eq('id',editando.grupo_id)
+      }
+    }
     setEditando(null);onReload()
   }
 
@@ -411,14 +431,53 @@ setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Clienta</label>
+              <select value={editando.cliente_id||''} onChange={e=>setEditando({...editando,cliente_id:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                <option value="">-- selecciona --</option>
+                {clientes.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Fecha</label>
+              <input type="date" value={editando.fecha||''} onChange={e=>setEditando({...editando,fecha:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+            </div>
+            <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Tipo</label>
+              <select value={editando.tipo} onChange={e=>setEditando({...editando,tipo:e.target.value,servicio_id:'',producto_id:''})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                <option value="servicio">Servicio</option>
+                <option value="producto">Producto</option>
+              </select>
+            </div>
+            <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>{editando.tipo==='servicio'?'Servicio':'Producto'}</label>
+              {editando.tipo==='servicio'?(
+                <select value={editando.servicio_id||''} onChange={e=>setEditando({...editando,servicio_id:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                  <option value="">-- selecciona --</option>
+                  {servicios.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              ):(
+                <select value={editando.producto_id||''} onChange={e=>setEditando({...editando,producto_id:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                  <option value="">-- selecciona --</option>
+                  {inventario.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              )}
+            </div>
+            <div style={{marginBottom:9}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Monto ($)</label>
               <input type="number" value={editando.monto} onChange={e=>setEditando({...editando,monto:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
             </div>
-            <div style={{marginBottom:9}}>
+            {editando.tipo==='producto'&&(
+              <div style={{marginBottom:9}}>
+                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Cantidad</label>
+                <input type="number" min={1} value={editando.cantidad||1} onChange={e=>setEditando({...editando,cantidad:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+              </div>
+            )}
+            <div style={{marginBottom:9,gridColumn:'1 / -1'}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Notas</label>
               <input value={editando.nota||''} onChange={e=>setEditando({...editando,nota:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
             </div>
           </div>
+          <div style={{fontSize:11,color:'#888',marginBottom:10}}>⚠ Si esta venta comparte fecha/clienta con otros ítems de la misma atención, esos también cambiarán.</div>
           <button onClick={guardarEdicion} style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>✓ Guardar</button>
         </div>
       )}
@@ -452,8 +511,7 @@ setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'
                     <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:eB[est],color:eC[est]}}>{eL[est]}</span></td>
                     <td style={{padding:'8px 10px'}}>
                       <div style={{display:'flex',gap:4}}>
-                        <button onClick={()=>setEditando({...v})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>
-                        <button onClick={()=>eliminarVenta(v.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:16}}>×</button>
+                      <button onClick={()=>setEditando({...v,montoOriginal:v.monto,cliente_id:v.grupos_venta?.clientes?.id||'',fecha:v.grupos_venta?.fecha||''})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>                        <button onClick={()=>eliminarVenta(v.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:16}}>×</button>
                       </div>
                     </td>
                   </tr>
@@ -1438,7 +1496,9 @@ function TopClientasTab({ventas,grupos,anoActual,fmt,fmtF}:any){
                         {d.anos[a]>0?fmt(d.anos[a]):'—'}
                       </td>
                     ))}
-                    
+                    <td style={{padding:'10px 10px',textAlign:'right'}}>
+                      {d.debe>0?<span style={{color:'#A32D2D',fontWeight:500,fontSize:11}}>{fmt(d.debe)}</span>:<span style={{color:'#3B6D11',fontSize:11}}>✓</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
