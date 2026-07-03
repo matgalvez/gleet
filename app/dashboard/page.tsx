@@ -1417,7 +1417,7 @@ function TopClientasTab({ventas,grupos,anoActual,fmt,fmtF}:any){
                   {anos.map(a=>(
                     <th key={a} style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:a===anoActual?'#1a1a1a':'#666',fontWeight:a===anoActual?700:400,fontSize:11}}>{a}</th>
                   ))}
-                  <th style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>Deuda</th>
+                  
                 </tr>
               </thead>
               <tbody>
@@ -1438,9 +1438,7 @@ function TopClientasTab({ventas,grupos,anoActual,fmt,fmtF}:any){
                         {d.anos[a]>0?fmt(d.anos[a]):'—'}
                       </td>
                     ))}
-                    <td style={{padding:'10px 10px',textAlign:'right'}}>
-                      {d.debe>0?<span style={{color:'#A32D2D',fontWeight:500,fontSize:11}}>{fmt(d.debe)}</span>:<span style={{color:'#3B6D11',fontSize:11}}>✓</span>}
-                    </td>
+                    
                   </tr>
                 ))}
               </tbody>
