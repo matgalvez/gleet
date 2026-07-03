@@ -258,9 +258,9 @@ useEffect(()=>{
         await supabase.from('ventas').insert({grupo_id:g.id,producto_id:r.prodId||null,tipo:'producto',monto:m*c,cantidad:c,nota:''})
       }
     }
-       setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
-    localStorage.removeItem('gleet_borrador_venta')    
-    onReload()
+setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
+    localStorage.removeItem('gleet_borrador_venta')
+        onReload()
   }
 
   async function saldar(id:string){
@@ -432,7 +432,8 @@ useEffect(()=>{
         </div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <thead><tr>{['Fecha','Tipo','Detalle','Clienta','Pago','Monto',''].map(h=><th key={h} style={{textAlign:'left',padding:'7px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Fecha','Clienta','Tipo','Detalle','Monto','Pago',''].map(h=><th key={h} style={{textAlign:'left',padding:'7px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+
             <tbody>
               {[...listaVentas].map((v:any)=>{
                 const cli=v.grupos_venta?.clientes?.nombre||'—'
@@ -444,11 +445,11 @@ useEffect(()=>{
                 return(
                   <tr key={v.id} style={{borderBottom:'1px solid #f5f5f5'}}>
                     <td style={{padding:'8px 10px',color:'#666'}}>{v.grupos_venta?.fecha?fmtF(v.grupos_venta.fecha):'—'}</td>
+                    <td style={{padding:'8px 10px'}}>{cli}</td>
                     <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:v.tipo==='servicio'?'#EEEDFE':'#E1F5EE',color:v.tipo==='servicio'?'#3C3489':'#0F6E56'}}>{v.tipo==='servicio'?'Servicio':'Producto'}</span></td>
                     <td style={{padding:'8px 10px'}}><div style={{fontWeight:500}}>{srv}</div>{v.nota&&<div style={{fontSize:10,color:'#888'}}>{v.nota}</div>}</td>
-                    <td style={{padding:'8px 10px'}}>{cli}</td>
-                    <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:eB[est],color:eC[est]}}>{eL[est]}</span></td>
                     <td style={{padding:'8px 10px',fontWeight:500}}>{fmt(v.monto)}</td>
+                    <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:eB[est],color:eC[est]}}>{eL[est]}</span></td>
                     <td style={{padding:'8px 10px'}}>
                       <div style={{display:'flex',gap:4}}>
                         <button onClick={()=>setEditando({...v})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>
