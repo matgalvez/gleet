@@ -204,6 +204,8 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
 
 function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt,fmtF}:any){
   const [clienteId,setClienteId]=useState('')
+  const [clienteBusqueda,setClienteBusqueda]=useState('')
+const [showSugerencias,setShowSugerencias]=useState(false)
   const [fecha,setFecha]=useState(hoy)
   const [pagoEstado,setPagoEstado]=useState('pagado')
   const [montoPagado,setMontoPagado]=useState('')
@@ -242,7 +244,7 @@ function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt
         await supabase.from('ventas').insert({grupo_id:g.id,producto_id:r.prodId||null,tipo:'producto',monto:m*c,cantidad:c,nota:''})
       }
     }
-    setClienteId('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
+    setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
     onReload()
   }
 
@@ -271,12 +273,31 @@ function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Registrar atención</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
-          <div>
+          <div style={{position:'relative'}}>
             <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Clienta</label>
-            <select value={clienteId} onChange={e=>setClienteId(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-              <option value="">-- selecciona clienta --</option>
-              {clientes.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.telefono?' · '+c.telefono:''}</option>)}
-            </select>
+            <input
+              value={clienteBusqueda}
+              onChange={e=>{setClienteBusqueda(e.target.value);setClienteId('');setShowSugerencias(true)}}
+              onFocus={()=>setShowSugerencias(true)}
+              onBlur={()=>setTimeout(()=>setShowSugerencias(false),150)}
+              placeholder="Escribe el nombre de la clienta..."
+              style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}
+            />
+            {showSugerencias&&clienteBusqueda&&!clienteId&&(
+              <div style={{position:'absolute',top:'100%',left:0,right:0,background:'white',border:'1px solid #e0e0e0',borderRadius:8,marginTop:4,maxHeight:220,overflowY:'auto',zIndex:20,boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}>
+                {clientes.filter((c:any)=>c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase())||c.telefono?.includes(clienteBusqueda)).slice(0,8).map((c:any)=>(
+                  <div key={c.id} onMouseDown={()=>{setClienteId(c.id);setClienteBusqueda(c.nombre);setShowSugerencias(false)}}
+                    style={{padding:'7px 10px',cursor:'pointer',borderBottom:'1px solid #f0f0f0',fontSize:12}}
+                    onMouseEnter={e=>(e.currentTarget.style.background='#f9f9f9')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='white')}>
+                    <span style={{fontWeight:500}}>{c.nombre}</span>{c.telefono?<span style={{color:'#888'}}> · {c.telefono}</span>:''}
+                  </div>
+                ))}
+                {clientes.filter((c:any)=>c.nombre.toLowerCase().includes(clienteBusqueda.toLowerCase())||c.telefono?.includes(clienteBusqueda)).length===0&&(
+                  <div style={{padding:'7px 10px',fontSize:12,color:'#666'}}>Sin resultados</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Fecha</label>
