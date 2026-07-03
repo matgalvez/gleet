@@ -11,11 +11,12 @@ export default function Dashboard() {
   const [citas, setCitas] = useState<any[]>([])
   const [ventas, setVentas] = useState<any[]>([])
   const [grupos, setGrupos] = useState<any[]>([])
+  const [categorias, setCategorias] = useState<any[]>([])
 
   useEffect(() => { cargar() }, [])
 
   async function cargar() {
-    const [c,s,i,p,ci,v,g] = await Promise.all([
+    const [c,s,i,p,ci,v,g,cat] = await Promise.all([
       supabase.from('clientes').select('*').order('nombre'),
       supabase.from('servicios').select('*').order('nombre'),
       supabase.from('inventario').select('*,proveedores(nombre)'),
@@ -23,6 +24,7 @@ export default function Dashboard() {
       supabase.from('citas').select('*,clientes(nombre),servicios(nombre,categoria)').order('fecha').order('hora'),
       supabase.from('ventas').select('*,servicios(nombre,categoria),inventario(nombre),grupos_venta(fecha,estado,pagado,total,clientes(nombre,id))').order('created_at',{ascending:false}),
       supabase.from('grupos_venta').select('*,clientes(nombre)').order('fecha',{ascending:false}),
+      supabase.from('categorias').select('*').order('nombre'),
     ])
     if(c.data) setClientes(c.data)
     if(s.data) setServicios(s.data)
@@ -31,6 +33,7 @@ export default function Dashboard() {
     if(ci.data) setCitas(ci.data)
     if(v.data) setVentas(v.data)
     if(g.data) setGrupos(g.data)
+    if(cat.data) setCategorias(cat.data)
   }
 
   const hoy = new Date().toISOString().split('T')[0]
@@ -50,7 +53,7 @@ export default function Dashboard() {
   const TABS = [
     ['inicio','Inicio'],['ventas','Ventas'],['historial','Historial'],['agenda','Agenda'],
     ['clientas','Clientas'],['proveedores','Proveedores'],['servicios','Servicios'],
-    ['inventario','Inventario'],['topclientes','Top Clientas'],['reportes','Reportes']
+    ['inventario','Inventario'],['categorias','Categorías'],['topclientes','Top Clientas'],['reportes','Reportes']
   ]
 
   return (
@@ -79,8 +82,9 @@ export default function Dashboard() {
         {tab==='agenda' && <AgendaTab citas={citas} clientes={clientes} servicios={servicios} onReload={cargar} hoy={hoy} />}
         {tab==='clientas' && <ClientasTab clientes={clientes} onReload={cargar} />}
         {tab==='proveedores' && <ProveedoresTab proveedores={proveedores} inventario={inventario} onReload={cargar} />}
-        {tab==='servicios' && <ServiciosTab servicios={servicios} onReload={cargar} />}
-        {tab==='inventario' && <InventarioTab inventario={inventario} proveedores={proveedores} onReload={cargar} fmt={fmt} />}
+        {tab==='servicios' && <ServiciosTab servicios={servicios} categorias={categorias} onReload={cargar} />}        
+        {tab==='inventario' && <InventarioTab inventario={inventario} proveedores={proveedores} categorias={categorias} onReload={cargar} fmt={fmt} />}
+        {tab==='categorias' && <CategoriasTab categorias={categorias} onReload={cargar} />}
         {tab==='topclientes' && <TopClientasTab ventas={ventas} grupos={grupos} anoActual={anoActual} fmt={fmt} fmtF={fmtF} />}
         {tab==='reportes' && <ReportesTab ventas={ventas} MESES={MESES} anoActual={anoActual} mesActual={mesActual} fmt={fmt} />}
       </div>
@@ -1108,14 +1112,14 @@ function ProveedoresTab({proveedores,inventario,onReload}:any){
     </div>
   )
 }
-function ServiciosTab({servicios,onReload}:any){
+function ServiciosTab({servicios,categorias,onReload}:any){
   const [nombre,setNombre]=useState('')
   const [categoria,setCategoria]=useState('corte')
   const [duracion,setDuracion]=useState(60)
   const [precio,setPrecio]=useState('')
   const [editando,setEditando]=useState<any>(null)
 
-  const CATS=[['corte','Corte'],['color','Color / Raíz / Baño'],['decoloracion','Decoloración / Mechas / Balayage'],['alisado','Alisado / Keratina'],['otro','Otro']]
+ const CATS=categorias.filter((c:any)=>c.tipo==='servicio').map((c:any)=>[c.valor,c.nombre])
   const fmt=(n:number)=>'$'+Math.round(n).toLocaleString('es-CL')
 
   async function agregar(){
@@ -1136,8 +1140,8 @@ function ServiciosTab({servicios,onReload}:any){
     onReload()
   }
 
-  const CAT_COLOR:any={corte:'#534AB7',color:'#D4537E',decoloracion:'#BA7517',alisado:'#0F6E56',otro:'#888780'}
-  const CAT_BG:any={corte:'#EEEDFE',color:'#FBEAF0',decoloracion:'#FAEEDA',alisado:'#E1F5EE',otro:'#F1EFE8'}
+  const catColor=(v:string)=>categorias.find((c:any)=>c.tipo==='servicio'&&c.valor===v)?.color||'#888780'
+  const catBg=(v:string)=>catColor(v)+'22'
   const durFmt=(m:number)=>m<60?m+'min':m%60===0?(m/60)+'h':Math.floor(m/60)+'h'+m%60
 
   return(
@@ -1153,8 +1157,7 @@ function ServiciosTab({servicios,onReload}:any){
             <div style={{marginBottom:9}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Categoría</label>
               <select value={categoria} onChange={e=>setCategoria(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-                {CATS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
-              </select>
+{CATS.map(([v,l]:any)=><option key={v} value={v}>{l}</option>)}              </select>
             </div>
           </div>
           <div>
@@ -1188,8 +1191,7 @@ function ServiciosTab({servicios,onReload}:any){
               <div style={{marginBottom:9}}>
                 <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Categoría</label>
                 <select value={editando.categoria} onChange={e=>setEditando({...editando,categoria:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-                  {CATS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
-                </select>
+                {CATS.map(([v,l]:any)=><option key={v} value={v}>{l}</option>)}                </select>
               </div>
             </div>
             <div>
@@ -1214,11 +1216,11 @@ function ServiciosTab({servicios,onReload}:any){
         {servicios.length===0&&<p style={{fontSize:12,color:'#666'}}>Sin servicios registrados. Agrega los servicios que ofreces.</p>}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
           {servicios.map((s:any)=>(
-            <div key={s.id} style={{border:'1px solid #e0e0e0',borderRadius:10,padding:12,borderLeft:`4px solid ${CAT_COLOR[s.categoria]||'#888'}`}}>
+            <div key={s.id} style={{border:'1px solid #e0e0e0',borderRadius:10,padding:12,borderLeft:`4px solid ${catColor(s.categoria)}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:500}}>{s.nombre}</div>
-                  <span style={{fontSize:11,padding:'2px 7px',borderRadius:20,background:CAT_BG[s.categoria]||'#f0f0f0',color:CAT_COLOR[s.categoria]||'#666'}}>{CATS.find(([v])=>v===s.categoria)?.[1]||s.categoria}</span>
+                  <span style={{fontSize:11,padding:'2px 7px',borderRadius:20,background:catBg(s.categoria),color:catColor(s.categoria)}}>{CATS.find(([v]:any)=>v===s.categoria)?.[1]||s.categoria}</span>
                 </div>
                 <div style={{display:'flex',gap:4}}>
                   <button onClick={()=>setEditando({...s})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>
@@ -1237,7 +1239,7 @@ function ServiciosTab({servicios,onReload}:any){
   )
 }
 
-function InventarioTab({inventario,proveedores,onReload,fmt}:any){
+function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
   const [nombre,setNombre]=useState('')
   const [categoria,setCategoria]=useState('Shampoo')
   const [stock,setStock]=useState('')
@@ -1247,7 +1249,7 @@ function InventarioTab({inventario,proveedores,onReload,fmt}:any){
   const [provId,setProvId]=useState('')
   const [editando,setEditando]=useState<any>(null)
 
-  const CATS=['Shampoo','Acondicionador','Tinte','Cera / Gel','Aceite','Pinche / Accesorio','Otro']
+  const CATS=categorias.filter((c:any)=>c.tipo==='producto').map((c:any)=>c.nombre)
 
   async function agregar(){
     if(!nombre){alert('Ingresa el nombre');return}
@@ -1286,8 +1288,7 @@ function InventarioTab({inventario,proveedores,onReload,fmt}:any){
             <div style={{marginBottom:9}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Categoría</label>
               <select value={categoria} onChange={e=>setCategoria(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-                {CATS.map(c=><option key={c}>{c}</option>)}
-              </select>
+{CATS.map((c:any)=><option key={c}>{c}</option>)}              </select>
             </div>
             <div style={{marginBottom:9}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Proveedor</label>
@@ -1336,7 +1337,7 @@ function InventarioTab({inventario,proveedores,onReload,fmt}:any){
               <div style={{marginBottom:9}}>
                 <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Categoría</label>
                 <select value={editando.categoria} onChange={e=>setEditando({...editando,categoria:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-                  {CATS.map(c=><option key={c}>{c}</option>)}
+                  {CATS.map((c:any)=><option key={c}>{c}</option>)}
                 </select>
               </div>
               <div style={{marginBottom:9}}>
@@ -1628,6 +1629,115 @@ function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+function CategoriasTab({categorias,onReload}:any){
+  const [tipo,setTipo]=useState('servicio')
+  const [nombre,setNombre]=useState('')
+  const [color,setColor]=useState('#888780')
+  const [editando,setEditando]=useState<any>(null)
+
+  function slug(s:string){
+    return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')
+  }
+
+  async function agregar(){
+    if(!nombre){alert('Ingresa el nombre de la categoría');return}
+    const valor=tipo==='servicio'?slug(nombre):nombre
+    await supabase.from('categorias').insert({tipo,valor,nombre,color:tipo==='servicio'?color:null})
+    setNombre('');setColor('#888780')
+    onReload()
+  }
+
+  async function guardarEdicion(){
+    if(!editando) return
+    await supabase.from('categorias').update({nombre:editando.nombre,color:editando.color}).eq('id',editando.id)
+    setEditando(null);onReload()
+  }
+
+  async function eliminar(id:string){
+    if(!confirm('¿Eliminar esta categoría? Los servicios o productos que ya la usan mantendrán el valor guardado, pero no aparecerá más en la lista para elegir.')) return
+    await supabase.from('categorias').delete().eq('id',id)
+    onReload()
+  }
+
+  const deServicio=categorias.filter((c:any)=>c.tipo==='servicio')
+  const deProducto=categorias.filter((c:any)=>c.tipo==='producto')
+
+  return(
+    <div>
+      <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Nueva categoría</div>
+        <div style={{display:'grid',gridTemplateColumns:tipo==='servicio'?'1fr 1fr 1fr':'1fr 1fr',gap:12,alignItems:'end'}}>
+          <div>
+            <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Aplica a</label>
+            <select value={tipo} onChange={e=>setTipo(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+              <option value="servicio">Servicios</option>
+              <option value="producto">Inventario / Productos</option>
+            </select>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Nombre de la categoría</label>
+            <input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Ej: Tratamientos capilares" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+          </div>
+          {tipo==='servicio'&&(
+            <div>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Color</label>
+              <input type="color" value={color} onChange={e=>setColor(e.target.value)} style={{width:'100%',padding:'2px',border:'1px solid #ddd',borderRadius:8,height:32,cursor:'pointer'}}/>
+            </div>
+          )}
+        </div>
+        <button onClick={agregar} style={{marginTop:12,padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>+ Agregar categoría</button>
+      </div>
+
+      {editando&&(
+        <div style={{background:'white',border:'1px solid #c8a96e',borderRadius:12,padding:14,marginBottom:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
+            <span style={{fontSize:13,fontWeight:500}}>✏ Editar categoría</span>
+            <button onClick={()=>setEditando(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#999'}}>×</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:editando.tipo==='servicio'?'1fr 1fr':'1fr',gap:12}}>
+            <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Nombre</label>
+              <input value={editando.nombre} onChange={e=>setEditando({...editando,nombre:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+            </div>
+            {editando.tipo==='servicio'&&(
+              <div style={{marginBottom:9}}>
+                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Color</label>
+                <input type="color" value={editando.color||'#888780'} onChange={e=>setEditando({...editando,color:e.target.value})} style={{width:'100%',padding:'2px',border:'1px solid #ddd',borderRadius:8,height:32,cursor:'pointer'}}/>
+              </div>
+            )}
+          </div>
+          <button onClick={guardarEdicion} style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>✓ Guardar cambios</button>
+        </div>
+      )}
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>✂ Categorías de Servicios</div>
+          {deServicio.length===0&&<p style={{fontSize:12,color:'#666'}}>Sin categorías registradas.</p>}
+          {deServicio.map((c:any)=>(
+            <div key={c.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',borderBottom:'1px solid #f0f0f0'}}>
+              <span style={{width:12,height:12,borderRadius:4,background:c.color||'#888',display:'inline-block',flexShrink:0}}></span>
+              <span style={{fontSize:12,flex:1}}>{c.nombre}</span>
+              <button onClick={()=>setEditando({...c})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>
+              <button onClick={()=>eliminar(c.id)} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ffcccc',background:'#fff5f5',color:'#A32D2D',cursor:'pointer',fontSize:11}}>×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>🛍 Categorías de Inventario</div>
+          {deProducto.length===0&&<p style={{fontSize:12,color:'#666'}}>Sin categorías registradas.</p>}
+          {deProducto.map((c:any)=>(
+            <div key={c.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',borderBottom:'1px solid #f0f0f0'}}>
+              <span style={{fontSize:12,flex:1}}>{c.nombre}</span>
+              <button onClick={()=>setEditando({...c})} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>✏</button>
+              <button onClick={()=>eliminar(c.id)} style={{padding:'3px 8px',borderRadius:6,border:'1px solid #ffcccc',background:'#fff5f5',color:'#A32D2D',cursor:'pointer',fontSize:11}}>×</button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
