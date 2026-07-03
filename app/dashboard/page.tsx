@@ -203,16 +203,30 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
 }
 
 function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt,fmtF}:any){
-  const [clienteId,setClienteId]=useState('')
-  const [clienteBusqueda,setClienteBusqueda]=useState('')
-const [showSugerencias,setShowSugerencias]=useState(false)
-  const [fecha,setFecha]=useState(hoy)
-  const [pagoEstado,setPagoEstado]=useState('pagado')
-  const [montoPagado,setMontoPagado]=useState('')
-  const [servRows,setServRows]=useState<any[]>([{id:1,servicioId:'',monto:'',nota:''}])
-  const [prodRows,setProdRows]=useState<any[]>([])
+  const cargarBorrador=()=>{
+    if(typeof window==='undefined') return null
+    try{
+      const b=localStorage.getItem('gleet_borrador_venta')
+      return b?JSON.parse(b):null
+    }catch{return null}
+  }
+  const borrador=cargarBorrador()
+  const [clienteId,setClienteId]=useState(borrador?.clienteId||'')
+  const [clienteBusqueda,setClienteBusqueda]=useState(borrador?.clienteBusqueda||'')
+  const [showSugerencias,setShowSugerencias]=useState(false)
+  const [fecha,setFecha]=useState(borrador?.fecha||hoy)
+  const [pagoEstado,setPagoEstado]=useState(borrador?.pagoEstado||'pagado')
+  const [montoPagado,setMontoPagado]=useState(borrador?.montoPagado||'')
+  const [servRows,setServRows]=useState<any[]>(borrador?.servRows||[{id:1,servicioId:'',monto:'',nota:''}])
+  const [prodRows,setProdRows]=useState<any[]>(borrador?.prodRows||[])
   const [filtro,setFiltro]=useState('')
   const [editando,setEditando]=useState<any>(null)
+
+useEffect(()=>{
+    const datos={clienteId,clienteBusqueda,fecha,pagoEstado,montoPagado,servRows,prodRows}
+    localStorage.setItem('gleet_borrador_venta',JSON.stringify(datos))
+  },[clienteId,clienteBusqueda,fecha,pagoEstado,montoPagado,servRows,prodRows])
+
 
   const CAT_COLOR:any={corte:'#534AB7',color:'#D4537E',decoloracion:'#BA7517',alisado:'#0F6E56',otro:'#888780'}
   const durFmt=(m:number)=>m<60?m+'min':m%60===0?(m/60)+'h':Math.floor(m/60)+'h'+m%60
@@ -244,7 +258,8 @@ const [showSugerencias,setShowSugerencias]=useState(false)
         await supabase.from('ventas').insert({grupo_id:g.id,producto_id:r.prodId||null,tipo:'producto',monto:m*c,cantidad:c,nota:''})
       }
     }
-    setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
+       setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
+    localStorage.removeItem('gleet_borrador_venta')    
     onReload()
   }
 
