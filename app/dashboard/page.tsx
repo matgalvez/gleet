@@ -1376,7 +1376,7 @@ function InventarioTab({inventario,proveedores,onReload,fmt}:any){
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Mis productos</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <thead><tr>{['Producto','Cat.','Proveedor','Stock','P. Venta','P. Costo','Margen','Estado',''].map(h=><th key={h} style={{textAlign:'left',padding:'7px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Producto','Cat.','Proveedor','Stock','Stock mín.','P. Venta','P. Costo','Margen','Estado',''].map(h=><th key={h} style={{textAlign:'left',padding:'7px 10px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
             <tbody>
               {inventario.map((p:any)=>{
                 const prov=proveedores.find((x:any)=>x.id===p.proveedor_id)
@@ -1399,6 +1399,7 @@ function InventarioTab({inventario,proveedores,onReload,fmt}:any){
                         <button onClick={()=>ajustar(p.id,-1,p.stock)} style={{padding:'2px 6px',borderRadius:6,border:'1px solid #ddd',background:'white',cursor:'pointer',fontSize:11}}>-</button>
                       </div>
                     </td>
+                    <td style={{padding:'8px 10px',color:'#666'}}>{p.stock_minimo}</td>
                     <td style={{padding:'8px 10px',color:'#3B6D11',fontWeight:500}}>{fmt(p.precio_venta)}</td>
                     <td style={{padding:'8px 10px',color:'#666'}}>{fmt(p.precio_costo)}</td>
                     <td style={{padding:'8px 10px'}}><span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:'#EEEDFE',color:'#3C3489'}}>{mg}</span></td>
