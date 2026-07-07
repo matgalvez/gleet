@@ -1701,16 +1701,22 @@ function ReportesTab({ventas,inventario,MESES,anoActual,mesActual,fmt}:any){
   const margenServ=totalServ-costoServ
   const margenProd=totalProd-costoProd
 
-  const aggServ:{[k:string]:{n:number,t:number}}={}
-  const aggProd:{[k:string]:{n:number,t:number}}={}
-  vMes.forEach((v:any)=>{
+  const vAno=ventas.filter((v:any)=>{
+    const f=v.grupos_venta?.fecha
+    if(!f) return false
+    return new Date(f+'T12:00:00').getFullYear()===ano
+  })
+  const aggServ:{[k:string]:{n:number,t:number,c:number}}={}
+  const aggProd:{[k:string]:{n:number,t:number,c:number}}={}
+  vAno.forEach((v:any)=>{
     const nombre=v.tipo==='servicio'?(v.servicios?.nombre||'Servicio'):(v.inventario?.nombre||'Producto')
+    const costo=costoVenta(v)
     if(v.tipo==='servicio'){
-      if(!aggServ[nombre]) aggServ[nombre]={n:0,t:0}
-      aggServ[nombre].n++;aggServ[nombre].t+=v.monto
+      if(!aggServ[nombre]) aggServ[nombre]={n:0,t:0,c:0}
+      aggServ[nombre].n++;aggServ[nombre].t+=v.monto;aggServ[nombre].c+=costo
     } else {
-      if(!aggProd[nombre]) aggProd[nombre]={n:0,t:0}
-      aggProd[nombre].n+=v.cantidad||1;aggProd[nombre].t+=v.monto
+      if(!aggProd[nombre]) aggProd[nombre]={n:0,t:0,c:0}
+      aggProd[nombre].n+=v.cantidad||1;aggProd[nombre].t+=v.monto;aggProd[nombre].c+=costo
     }
   })
 
@@ -1772,31 +1778,30 @@ function ReportesTab({ventas,inventario,MESES,anoActual,mesActual,fmt}:any){
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
         <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
-          <div style={{fontSize:13,fontWeight:500,marginBottom:10}}>✂ Servicios del mes</div>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:10}}>✂ Servicios año {ano}</div>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <thead><tr>{['Servicio','Veces','Total'].map(h=><th key={h} style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Servicio','Veces','Total','Utilidad'].map(h=><th key={h} style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
             <tbody>
-              {Object.entries(aggServ).sort((a,b)=>b[1].t-a[1].t).map(([k,v])=>(
-                <tr key={k}><td style={{padding:'7px 8px'}}>{k}</td><td style={{padding:'7px 8px'}}>{v.n}</td><td style={{padding:'7px 8px',fontWeight:500}}>{fmt(v.t)}</td></tr>
+              {Object.entries(aggServ).sort((a,b)=>(b[1].t-b[1].c)-(a[1].t-a[1].c)).map(([k,v])=>(
+                <tr key={k}><td style={{padding:'7px 8px'}}>{k}</td><td style={{padding:'7px 8px'}}>{v.n}</td><td style={{padding:'7px 8px',fontWeight:500}}>{fmt(v.t)}</td><td style={{padding:'7px 8px',fontWeight:500,color:'#3B6D11'}}>{fmt(v.t-v.c)}</td></tr>
               ))}
-              {Object.keys(aggServ).length===0&&<tr><td colSpan={3} style={{textAlign:'center',color:'#666',padding:12}}>Sin datos</td></tr>}
+              {Object.keys(aggServ).length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'#666',padding:12}}>Sin datos</td></tr>}
             </tbody>
           </table>
         </div>
         <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
-          <div style={{fontSize:13,fontWeight:500,marginBottom:10}}>🛍 Productos del mes</div>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:10}}>🛍 Productos año {ano}</div>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <thead><tr>{['Producto','Uds.','Total'].map(h=><th key={h} style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Producto','Uds.','Total','Utilidad'].map(h=><th key={h} style={{textAlign:'left',padding:'6px 8px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
             <tbody>
-              {Object.entries(aggProd).sort((a,b)=>b[1].t-a[1].t).map(([k,v])=>(
-                <tr key={k}><td style={{padding:'7px 8px'}}>{k}</td><td style={{padding:'7px 8px'}}>{v.n}</td><td style={{padding:'7px 8px',fontWeight:500,color:'#c8a96e'}}>{fmt(v.t)}</td></tr>
+              {Object.entries(aggProd).sort((a,b)=>(b[1].t-b[1].c)-(a[1].t-a[1].c)).map(([k,v])=>(
+                <tr key={k}><td style={{padding:'7px 8px'}}>{k}</td><td style={{padding:'7px 8px'}}>{v.n}</td><td style={{padding:'7px 8px',fontWeight:500,color:'#c8a96e'}}>{fmt(v.t)}</td><td style={{padding:'7px 8px',fontWeight:500,color:'#3B6D11'}}>{fmt(v.t-v.c)}</td></tr>
               ))}
-              {Object.keys(aggProd).length===0&&<tr><td colSpan={3} style={{textAlign:'center',color:'#666',padding:12}}>Sin datos</td></tr>}
+              {Object.keys(aggProd).length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:'#666',padding:12}}>Sin datos</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
-
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Resumen anual {ano}</div>
         <div style={{overflowX:'auto'}}>
