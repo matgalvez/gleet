@@ -136,7 +136,9 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
     }
     return 0
   }
-
+  const productosVenta=inventario.filter((p:any)=>p.tipo_producto==='venta'||!p.tipo_producto)
+  const capitalCosto=productosVenta.reduce((a:number,p:any)=>a+(p.precio_costo||0)*(p.stock||0),0)
+  const capitalVenta=productosVenta.reduce((a:number,p:any)=>a+(p.precio_venta||0)*(p.stock||0),0)
 
   return(
     <div>
@@ -173,6 +175,23 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
           <div style={{fontSize:20,fontWeight:500,color:deudasViejas.length>0?'#A32D2D':'inherit'}}>{deudasViejas.length}</div>
         </div>
       </div>
+
+      <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>💰 Capital estancado en productos</div>
+        <div style={{fontSize:11,color:'#666',marginBottom:12}}>Solo productos para venta (no insumos internos)</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <div style={{background:'#f0f0f0',borderRadius:8,padding:12}}>
+            <div style={{fontSize:11,color:'#666'}}>Costo total del stock</div>
+            <div style={{fontSize:20,fontWeight:500}}>{fmt(capitalCosto)}</div>
+          </div>
+          <div style={{background:'#f0ede6',borderRadius:8,padding:12}}>
+            <div style={{fontSize:11,color:'#5a4a2a'}}>Venta potencial (si se vende todo)</div>
+            <div style={{fontSize:20,fontWeight:500,color:'#5a4a2a'}}>{fmt(capitalVenta)}</div>
+          </div>
+        </div>
+      </div>
+
+
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Resumen año {anoActual}</div>
         <div style={{overflowX:'auto'}}>
