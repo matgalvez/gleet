@@ -1247,20 +1247,23 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
   const [precioVenta,setPrecioVenta]=useState('')
   const [precioCosto,setPrecioCosto]=useState('')
   const [provId,setProvId]=useState('')
+  const [contenidoTotal,setContenidoTotal]=useState('')
+  const [unidadMedida,setUnidadMedida]=useState('unidad')
+  const [tipoProducto,setTipoProducto]=useState('venta')
   const [editando,setEditando]=useState<any>(null)
 
   const CATS=categorias.filter((c:any)=>c.tipo==='producto').map((c:any)=>c.nombre)
 
   async function agregar(){
     if(!nombre){alert('Ingresa el nombre');return}
-    await supabase.from('inventario').insert({nombre,categoria,stock:parseInt(stock)||0,stock_minimo:parseInt(stockMin)||2,precio_venta:parseInt(precioVenta)||0,precio_costo:parseInt(precioCosto)||0,proveedor_id:provId||null})
-    setNombre('');setStock('');setPrecioVenta('');setPrecioCosto('');setProvId('')
+    await supabase.from('inventario').insert({nombre,categoria,stock:parseInt(stock)||0,stock_minimo:parseInt(stockMin)||2,precio_venta:parseInt(precioVenta)||0,precio_costo:parseInt(precioCosto)||0,proveedor_id:provId||null,contenido_total:parseFloat(contenidoTotal)||null,unidad_medida:unidadMedida,tipo_producto:tipoProducto})
+    setNombre('');setStock('');setPrecioVenta('');setPrecioCosto('');setProvId('');setContenidoTotal('');setUnidadMedida('unidad');setTipoProducto('venta')
     onReload()
   }
 
   async function guardarEdicion(){
     if(!editando) return
-    await supabase.from('inventario').update({nombre:editando.nombre,categoria:editando.categoria,stock:editando.stock,stock_minimo:editando.stock_minimo,precio_venta:editando.precio_venta,precio_costo:editando.precio_costo,proveedor_id:editando.proveedor_id||null}).eq('id',editando.id)
+    await supabase.from('inventario').update({nombre:editando.nombre,categoria:editando.categoria,stock:editando.stock,stock_minimo:editando.stock_minimo,precio_venta:editando.precio_venta,precio_costo:editando.precio_costo,proveedor_id:editando.proveedor_id||null,contenido_total:parseFloat(editando.contenido_total)||null,unidad_medida:editando.unidad_medida||'unidad',tipo_producto:editando.tipo_producto||'venta'}).eq('id',editando.id)
     setEditando(null);onReload()
   }
 
@@ -1318,6 +1321,29 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
               <input type="number" value={precioCosto} onChange={e=>setPrecioCosto(e.target.value)} placeholder="0" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
             </div>
           </div>
+          <div>
+            <div style={{marginBottom:9}}>
+              <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Tipo de producto</label>
+              <select value={tipoProducto} onChange={e=>setTipoProducto(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                <option value="venta">Para venta</option>
+                <option value="insumo">Insumo interno</option>
+              </select>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Contenido total</label>
+                <input type="number" value={contenidoTotal} onChange={e=>setContenidoTotal(e.target.value)} placeholder="Ej: 1000" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Unidad</label>
+                <select value={unidadMedida} onChange={e=>setUnidadMedida(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                  <option value="unidad">Unidad</option>
+                  <option value="gr">Gramos</option>
+                  <option value="ml">Mililitros</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
         <button onClick={agregar} style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>+ Agregar</button>
       </div>
@@ -1328,7 +1354,7 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
             <span style={{fontSize:13,fontWeight:500}}>✏ Editar producto</span>
             <button onClick={()=>setEditando(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#999'}}>×</button>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:12}}>
             <div>
               <div style={{marginBottom:9}}>
                 <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Nombre</label>
@@ -1366,6 +1392,29 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
               <div style={{marginBottom:9}}>
                 <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Precio costo ($)</label>
                 <input type="number" value={editando.precio_costo} onChange={e=>setEditando({...editando,precio_costo:parseInt(e.target.value)||0})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{marginBottom:9}}>
+                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Tipo de producto</label>
+                <select value={editando.tipo_producto||'venta'} onChange={e=>setEditando({...editando,tipo_producto:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                  <option value="venta">Para venta</option>
+                  <option value="insumo">Insumo interno</option>
+                </select>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Contenido total</label>
+                  <input type="number" value={editando.contenido_total||''} onChange={e=>setEditando({...editando,contenido_total:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Unidad</label>
+                  <select value={editando.unidad_medida||'unidad'} onChange={e=>setEditando({...editando,unidad_medida:e.target.value})} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                    <option value="unidad">Unidad</option>
+                    <option value="gr">Gramos</option>
+                    <option value="ml">Mililitros</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
