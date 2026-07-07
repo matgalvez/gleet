@@ -1282,7 +1282,7 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
     <div>
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Agregar producto</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:12}}>
           <div>
             <div style={{marginBottom:9}}>
               <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Nombre</label>
