@@ -1323,7 +1323,17 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
     await supabase.from('inventario').update({stock:Math.max(0,actual+delta)}).eq('id',id)
     onReload()
   }
-
+function fmtStock(p:any){
+    if(p.tipo_producto==='insumo'&&p.contenido_total&&p.unidad_medida!=='unidad'){
+      const enteras=Math.floor(p.stock)
+      const resto=Math.round((p.stock-enteras)*p.contenido_total)
+      if(enteras===0&&resto===0) return '0'
+      if(resto===0) return `${enteras}un`
+      if(enteras===0) return `${resto}${p.unidad_medida}`
+      return `${enteras}un y ${resto}${p.unidad_medida}`
+    }
+    return String(p.stock)
+  }
   async function eliminar(id:string){
     if(!confirm('¿Eliminar este producto?')) return
     await supabase.from('inventario').delete().eq('id',id)
@@ -1493,7 +1503,7 @@ function InventarioTab({inventario,proveedores,categorias,onReload,fmt}:any){
                     <td style={{padding:'8px 10px',fontSize:11,color:'#666'}}>{prov?prov.nombre:'—'}</td>
                     <td style={{padding:'8px 10px'}}>
                       <div style={{display:'flex',alignItems:'center',gap:5}}>
-                        <span style={{fontWeight:500,minWidth:18}}>{p.stock}</span>
+                        <span style={{fontWeight:500,minWidth:18}}>{fmtStock(p)}</span>
                         <div style={{flex:1,minWidth:40,height:5,background:'#f0f0f0',borderRadius:3,overflow:'hidden'}}>
                           <div style={{width:pct+'%',height:'100%',background:col,borderRadius:3}}></div>
                         </div>
