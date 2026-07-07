@@ -86,7 +86,7 @@ export default function Dashboard() {
         {tab==='inventario' && <InventarioTab inventario={inventario} proveedores={proveedores} categorias={categorias} onReload={cargar} fmt={fmt} />}
         {tab==='categorias' && <CategoriasTab categorias={categorias} onReload={cargar} />}
         {tab==='topclientes' && <TopClientasTab ventas={ventas} grupos={grupos} anoActual={anoActual} fmt={fmt} fmtF={fmtF} />}
-        {tab==='reportes' && <ReportesTab ventas={ventas} MESES={MESES} anoActual={anoActual} mesActual={mesActual} fmt={fmt} />}
+        {tab==='reportes' && <ReportesTab ventas={ventas} inventario={inventario} MESES={MESES} anoActual={anoActual} mesActual={mesActual} fmt={fmt} />}
       </div>
     </div>
   )
@@ -1668,9 +1668,24 @@ function TopClientasTab({ventas,grupos,anoActual,fmt,fmtF}:any){
     </div>
   )
 }
-function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
+function ReportesTab({ventas,inventario,MESES,anoActual,mesActual,fmt}:any){
   const [mes,setMes]=useState(mesActual)
   const [ano,setAno]=useState(anoActual)
+
+  function costoVenta(v:any){
+    if(v.tipo==='servicio'){
+      return (v.insumos_usados||[]).reduce((a:number,ins:any)=>{
+        const prod=inventario.find((p:any)=>p.id===ins.productoId)
+        if(!prod||!prod.contenido_total||!prod.precio_costo) return a
+        return a+(prod.precio_costo/prod.contenido_total)*(parseFloat(ins.cantidad)||0)
+      },0)
+    }
+    if(v.tipo==='producto'){
+      const prod=inventario.find((p:any)=>p.id===v.producto_id)
+      return (prod?.precio_costo||0)*(v.cantidad||1)
+    }
+    return 0
+  }
 
   const vMes=ventas.filter((v:any)=>{
     const f=v.grupos_venta?.fecha
@@ -1681,6 +1696,10 @@ function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
 
   const totalServ=vMes.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0)
   const totalProd=vMes.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
+  const costoServ=vMes.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+costoVenta(v),0)
+  const costoProd=vMes.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+costoVenta(v),0)
+  const margenServ=totalServ-costoServ
+  const margenProd=totalProd-costoProd
 
   const aggServ:{[k:string]:{n:number,t:number}}={}
   const aggProd:{[k:string]:{n:number,t:number}}={}
@@ -1702,10 +1721,15 @@ function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
       const d=new Date(f+'T12:00:00')
       return d.getMonth()===i&&d.getFullYear()===ano
     })
+    const serv=vA.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0)
+    const prod=vA.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
+    const costoS=vA.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+costoVenta(v),0)
+    const costoP=vA.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+costoVenta(v),0)
     return{
       mes:MESES[i].slice(0,3),
-      serv:vA.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0),
-      prod:vA.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
+      serv,prod,
+      costo:costoS+costoP,
+      margen:(serv+prod)-(costoS+costoP)
     }
   })
 
@@ -1726,6 +1750,22 @@ function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
           <div key={l} style={{background:'#f0f0f0',borderRadius:8,padding:12}}>
             <div style={{fontSize:11,color:'#666'}}>{l}</div>
             <div style={{fontSize:20,fontWeight:500}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
+        {[['Costo servicios',fmt(costoServ)],['Costo productos',fmt(costoProd)],['Costo total mes',fmt(costoServ+costoProd)]].map(([l,v])=>(
+          <div key={l} style={{background:'#FAEEDA',borderRadius:8,padding:12}}>
+            <div style={{fontSize:11,color:'#854F0B'}}>{l}</div>
+            <div style={{fontSize:20,fontWeight:500,color:'#854F0B'}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
+        {[['Margen servicios',fmt(margenServ)],['Margen productos',fmt(margenProd)],['Margen total mes',fmt(margenServ+margenProd)]].map(([l,v])=>(
+          <div key={l} style={{background:'#EAF3DE',borderRadius:8,padding:12}}>
+            <div style={{fontSize:11,color:'#3B6D11'}}>{l}</div>
+            <div style={{fontSize:20,fontWeight:500,color:'#3B6D11'}}>{v}</div>
           </div>
         ))}
       </div>
@@ -1783,6 +1823,16 @@ function ReportesTab({ventas,MESES,anoActual,mesActual,fmt}:any){
                 <td style={{padding:'6px 8px',fontWeight:500}}>Total</td>
                 {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',fontWeight:500}}>{fmt(d.serv+d.prod)}</td>)}
                 <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,fontSize:13}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.serv+d.prod,0))}</td>
+              </tr>
+              <tr style={{borderTop:'1px solid #eee'}}>
+                <td style={{padding:'6px 8px',fontWeight:500,color:'#854F0B'}}>Costo</td>
+                {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',color:'#854F0B'}}>{fmt(d.costo)}</td>)}
+                <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,color:'#854F0B'}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.costo,0))}</td>
+              </tr>
+              <tr>
+                <td style={{padding:'6px 8px',fontWeight:500,color:'#3B6D11'}}>Margen</td>
+                {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',color:'#3B6D11'}}>{fmt(d.margen)}</td>)}
+                <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,color:'#3B6D11',fontSize:13}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.margen,0))}</td>
               </tr>
             </tbody>
           </table>
