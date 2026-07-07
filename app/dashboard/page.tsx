@@ -78,7 +78,7 @@ export default function Dashboard() {
       <div style={{padding:16}}>
         {tab==='inicio' && <InicioTab ventas={ventas} grupos={grupos} citas={citas} inventario={inventario} hoy={hoy} fmt={fmt} fmtF={fmtF} MESES={MESES} anoActual={anoActual} mesActual={mesActual} semana={semana} />}
         {tab==='ventas' && <VentasTab clientes={clientes} servicios={servicios} inventario={inventario} grupos={grupos} ventas={ventas} categorias={categorias} onReload={cargar} hoy={hoy} fmt={fmt} fmtF={fmtF} />}
-        {tab==='historial' && <HistorialTab ventas={ventas} grupos={grupos} clientes={clientes} fmt={fmt} fmtF={fmtF} />}
+        {tab==='historial' && <HistorialTab ventas={ventas} grupos={grupos} clientes={clientes} inventario={inventario} fmt={fmt} fmtF={fmtF} />}
         {tab==='agenda' && <AgendaTab citas={citas} clientes={clientes} servicios={servicios} onReload={cargar} hoy={hoy} />}
         {tab==='clientas' && <ClientasTab clientes={clientes} onReload={cargar} />}
         {tab==='proveedores' && <ProveedoresTab proveedores={proveedores} inventario={inventario} onReload={cargar} />}
@@ -653,7 +653,7 @@ useEffect(()=>{
     </div>
   )
 }
-function HistorialTab({ventas,grupos,clientes,fmt,fmtF}:any){
+function HistorialTab({ventas,grupos,clientes,inventario,fmt,fmtF}:any){
   const [buscar,setBuscar]=useState('')
   const [clienteSelec,setClienteSelec]=useState<any>(null)
 
@@ -676,7 +676,16 @@ function HistorialTab({ventas,grupos,clientes,fmt,fmtF}:any){
   })
 
   const totHistorico=ventasCli.reduce((a:number,v:any)=>a+v.monto,0)
-
+  const filas:any[]=[]
+  Object.values(grps).sort((a:any,b:any)=>b.fecha.localeCompare(a.fecha)).forEach((g:any)=>{
+    const debe=g.total-g.pagado
+    g.srv.forEach((v:any,i:number)=>{
+      filas.push({fecha:g.fecha,mostrarFecha:i===0,debe:i===0?debe:0,v,tipo:'servicio'})
+    })
+    g.prd.forEach((v:any,i:number)=>{
+      filas.push({fecha:g.fecha,mostrarFecha:g.srv.length===0&&i===0,debe:g.srv.length===0&&i===0?debe:0,v,tipo:'producto'})
+    })
+  })
   return(
     <div>
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14}}>
@@ -719,47 +728,48 @@ function HistorialTab({ventas,grupos,clientes,fmt,fmtF}:any){
 
             {Object.values(grps).length===0&&<p style={{fontSize:12,color:'#666'}}>Sin atenciones registradas para esta clienta.</p>}
 
-            {Object.values(grps).sort((a:any,b:any)=>b.fecha.localeCompare(a.fecha)).map((g:any,gi:number)=>{
-              const totG=[...g.srv,...g.prd].reduce((a:number,v:any)=>a+v.monto,0)
-              const debe=g.total-g.pagado
-              return(
-                <div key={gi} style={{padding:'10px 0',borderBottom:'1px solid #f5f5f5'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <span style={{fontSize:12,fontWeight:500}}>{g.fecha?new Date(g.fecha+'T12:00:00').toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):''}</span>
-                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                      {debe>0&&<span style={{padding:'2px 7px',borderRadius:20,fontSize:11,background:'#FAEEDA',color:'#854F0B'}}>Debe {fmt(debe)}</span>}
-                      <span style={{fontWeight:500,fontSize:13}}>{fmt(totG)}</span>
-                    </div>
-                  </div>
-                  {g.srv.length>0&&(
-                    <div style={{marginBottom:4}}>
-                      {g.srv.map((v:any,i:number)=>{
-                        const cat=v.servicios?.categoria||'otro'
+            {filas.length>0&&(
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead><tr>{['Fecha','Servicio','Descripción','Insumos utilizados','Monto'].map(h=><th key={h} style={{textAlign:'left',padding:'7px 8px',borderBottom:'1px solid #eee',color:'#666',fontSize:11}}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {filas.map((f,idx)=>{
+                      if(f.tipo==='servicio'){
+                        const cat=f.v.servicios?.categoria||'otro'
+                        const insumosTxt=(f.v.insumos_usados||[]).map((ins:any)=>{
+                          const prod=inventario?.find((p:any)=>p.id===ins.productoId)
+                          return `${prod?.nombre||'Insumo'} (${ins.cantidad}${prod?.unidad_medida||''})`
+                        }).join(', ')
                         return(
-                          <span key={i} style={{display:'inline-flex',alignItems:'center',gap:4,background:CAT_BG[cat],color:CAT_COLOR[cat],padding:'2px 8px',borderRadius:12,fontSize:11,margin:'2px 2px 2px 0'}}>
-                            ✂ {v.servicios?.nombre||'Servicio'} {fmt(v.monto)}
-                          </span>
+                          <tr key={idx} style={{borderBottom:'1px solid #f5f5f5'}}>
+                            <td style={{padding:'8px',color:'#666',whiteSpace:'nowrap',verticalAlign:'top'}}>
+                              {f.mostrarFecha?fmtF(f.fecha):''}
+                              {f.debe>0&&<div style={{marginTop:3}}><span style={{padding:'2px 6px',borderRadius:20,fontSize:10,background:'#FAEEDA',color:'#854F0B'}}>Debe {fmt(f.debe)}</span></div>}
+                            </td>
+                            <td style={{padding:'8px',verticalAlign:'top'}}><span style={{padding:'2px 8px',borderRadius:12,fontSize:11,background:CAT_BG[cat],color:CAT_COLOR[cat]}}>✂ {f.v.servicios?.nombre||'Servicio'}</span></td>
+                            <td style={{padding:'8px',color:'#666',verticalAlign:'top'}}>{f.v.nota||'—'}</td>
+                            <td style={{padding:'8px',color:'#666',verticalAlign:'top'}}>{insumosTxt||'—'}</td>
+                            <td style={{padding:'8px',fontWeight:500,verticalAlign:'top'}}>{fmt(f.v.monto)}</td>
+                          </tr>
                         )
-                      })}
-                      {g.srv.filter((v:any)=>v.nota).map((v:any,i:number)=>(
-                        <div key={i} style={{background:'#f9f9f9',borderRadius:6,padding:'5px 8px',fontSize:11,color:'#666',marginTop:4,fontStyle:'italic'}}>
-                          📝 {v.nota}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {g.prd.length>0&&(
-                    <div style={{marginTop:4}}>
-                      {g.prd.map((v:any,i:number)=>(
-                        <span key={i} style={{display:'inline-flex',alignItems:'center',gap:4,background:'#E1F5EE',color:'#0F6E56',padding:'2px 8px',borderRadius:12,fontSize:11,margin:'2px 2px 2px 0'}}>
-                          🛍 {v.inventario?.nombre||'Producto'}{v.cantidad>1?` x${v.cantidad}`:''} {fmt(v.monto)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                      }
+                      return(
+                        <tr key={idx} style={{borderBottom:'1px solid #f5f5f5'}}>
+                          <td style={{padding:'8px',color:'#666',whiteSpace:'nowrap',verticalAlign:'top'}}>
+                            {f.mostrarFecha?fmtF(f.fecha):''}
+                            {f.debe>0&&<div style={{marginTop:3}}><span style={{padding:'2px 6px',borderRadius:20,fontSize:10,background:'#FAEEDA',color:'#854F0B'}}>Debe {fmt(f.debe)}</span></div>}
+                          </td>
+                          <td style={{padding:'8px',verticalAlign:'top'}}><span style={{padding:'2px 8px',borderRadius:12,fontSize:11,background:'#E1F5EE',color:'#0F6E56'}}>🛍 {f.v.inventario?.nombre||'Producto'}{f.v.cantidad>1?` x${f.v.cantidad}`:''}</span></td>
+                          <td style={{padding:'8px',color:'#666',verticalAlign:'top'}}>—</td>
+                          <td style={{padding:'8px',color:'#666',verticalAlign:'top'}}>—</td>
+                          <td style={{padding:'8px',fontWeight:500,color:'#c8a96e',verticalAlign:'top'}}>{fmt(f.v.monto)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
