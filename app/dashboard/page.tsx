@@ -107,21 +107,6 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
   const deudasViejas=deudas.filter((g:any)=>diasDesde(g.fecha)>30)
   const stockBajo=inventario.filter((p:any)=>p.stock<=p.stock_minimo)
 
-  const dataAnual=MESES.map((_:any,i:number)=>{
-    const vA=ventas.filter((v:any)=>{
-      const f=v.grupos_venta?.fecha
-      if(!f) return false
-      const d=new Date(f+'T12:00:00')
-      return d.getMonth()===i&&d.getFullYear()===anoActual
-    })
-    return{
-      mes:MESES[i],
-      serv:vA.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0),
-      prod:vA.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
-    }
-  })
-
-  const proximas=citas.filter((c:any)=>c.fecha>=hoy).slice(0,5)
   function costoVenta(v:any){
     if(v.tipo==='servicio'){
       return (v.insumos_usados||[]).reduce((a:number,ins:any)=>{
@@ -136,6 +121,25 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
     }
     return 0
   }
+
+  const dataAnual=MESES.map((_:any,i:number)=>{
+    const vA=ventas.filter((v:any)=>{
+      const f=v.grupos_venta?.fecha
+      if(!f) return false
+      const d=new Date(f+'T12:00:00')
+      return d.getMonth()===i&&d.getFullYear()===anoActual
+    })
+    const serv=vA.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0)
+    const prod=vA.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
+    const costo=vA.reduce((a:number,v:any)=>a+costoVenta(v),0)
+    return{
+      mes:MESES[i],
+      serv,prod,costo,
+      margen:(serv+prod)-costo
+    }
+  })
+
+  const proximas=citas.filter((c:any)=>c.fecha>=hoy).slice(0,5)
   const productosVenta=inventario.filter((p:any)=>p.tipo_producto==='venta'||!p.tipo_producto)
   const capitalCosto=productosVenta.reduce((a:number,p:any)=>a+(p.precio_costo||0)*(p.stock||0),0)
   const capitalVenta=productosVenta.reduce((a:number,p:any)=>a+(p.precio_venta||0)*(p.stock||0),0)
@@ -216,6 +220,16 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
                 <td style={{padding:'6px 8px',fontWeight:500}}>Total</td>
                 {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',fontWeight:500}}>{fmt(d.serv+d.prod)}</td>)}
                 <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,fontSize:13}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.serv+d.prod,0))}</td>
+              </tr>
+              <tr style={{borderTop:'1px solid #eee'}}>
+                <td style={{padding:'6px 8px',fontWeight:500,color:'#854F0B'}}>Costo</td>
+                {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',color:'#854F0B'}}>{fmt(d.costo)}</td>)}
+                <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,color:'#854F0B'}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.costo,0))}</td>
+              </tr>
+              <tr>
+                <td style={{padding:'6px 8px',fontWeight:500,color:'#3B6D11'}}>Utilidad real</td>
+                {dataAnual.map((d:any)=><td key={d.mes} style={{textAlign:'right',padding:'6px 4px',color:'#3B6D11'}}>{fmt(d.margen)}</td>)}
+                <td style={{textAlign:'right',padding:'6px 8px',fontWeight:500,color:'#3B6D11',fontSize:13}}>{fmt(dataAnual.reduce((a:number,d:any)=>a+d.margen,0))}</td>
               </tr>
             </tbody>
           </table>
