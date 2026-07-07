@@ -77,7 +77,7 @@ export default function Dashboard() {
       </div>
       <div style={{padding:16}}>
         {tab==='inicio' && <InicioTab ventas={ventas} grupos={grupos} citas={citas} inventario={inventario} hoy={hoy} fmt={fmt} fmtF={fmtF} MESES={MESES} anoActual={anoActual} mesActual={mesActual} semana={semana} />}
-        {tab==='ventas' && <VentasTab clientes={clientes} servicios={servicios} inventario={inventario} grupos={grupos} ventas={ventas} onReload={cargar} hoy={hoy} fmt={fmt} fmtF={fmtF} />}
+        {tab==='ventas' && <VentasTab clientes={clientes} servicios={servicios} inventario={inventario} grupos={grupos} ventas={ventas} categorias={categorias} onReload={cargar} hoy={hoy} fmt={fmt} fmtF={fmtF} />}
         {tab==='historial' && <HistorialTab ventas={ventas} grupos={grupos} clientes={clientes} fmt={fmt} fmtF={fmtF} />}
         {tab==='agenda' && <AgendaTab citas={citas} clientes={clientes} servicios={servicios} onReload={cargar} hoy={hoy} />}
         {tab==='clientas' && <ClientasTab clientes={clientes} onReload={cargar} />}
@@ -206,7 +206,7 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
   )
 }
 
-function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt,fmtF}:any){
+function VentasTab({clientes,servicios,inventario,grupos,ventas,categorias,onReload,hoy,fmt,fmtF}:any){
   const cargarBorrador=()=>{
     if(typeof window==='undefined') return null
     try{
@@ -221,7 +221,7 @@ function VentasTab({clientes,servicios,inventario,grupos,ventas,onReload,hoy,fmt
   const [fecha,setFecha]=useState(borrador?.fecha||hoy)
   const [pagoEstado,setPagoEstado]=useState(borrador?.pagoEstado||'pagado')
   const [montoPagado,setMontoPagado]=useState(borrador?.montoPagado||'')
-  const [servRows,setServRows]=useState<any[]>(borrador?.servRows||[{id:1,servicioId:'',monto:'',nota:''}])
+  const [servRows,setServRows]=useState<any[]>(borrador?.servRows||[{id:1,servicioId:'',monto:'',nota:'',insumos:[]}])
   const [prodRows,setProdRows]=useState<any[]>(borrador?.prodRows||[])
   const [filtro,setFiltro]=useState('')
   const [editando,setEditando]=useState<any>(null)
@@ -251,7 +251,16 @@ useEffect(()=>{
     if(!g) return
     for(const r of servRows){
       if(parseFloat(r.monto)>0){
-        await supabase.from('ventas').insert({grupo_id:g.id,servicio_id:r.servicioId||null,tipo:'servicio',monto:parseFloat(r.monto),cantidad:1,nota:r.nota})
+        const insumosLimpios=(r.insumos||[]).filter((ins:any)=>ins.productoId&&parseFloat(ins.cantidad)>0)
+        await supabase.from('ventas').insert({grupo_id:g.id,servicio_id:r.servicioId||null,tipo:'servicio',monto:parseFloat(r.monto),cantidad:1,nota:r.nota,insumos_usados:insumosLimpios.length?insumosLimpios:null})
+        for(const ins of insumosLimpios){
+          const prod=inventario.find((p:any)=>p.id===ins.productoId)
+          if(prod){
+            const nuevoStock=Math.max(0,(prod.stock*(prod.contenido_total||1))-parseFloat(ins.cantidad))
+            const stockEnUnidades=prod.contenido_total?nuevoStock/prod.contenido_total:nuevoStock
+            await supabase.from('inventario').update({stock:stockEnUnidades}).eq('id',prod.id)
+          }
+        }
       }
     }
     for(const r of prodRows){
@@ -262,9 +271,9 @@ useEffect(()=>{
         await supabase.from('ventas').insert({grupo_id:g.id,producto_id:r.prodId||null,tipo:'producto',monto:m*c,cantidad:c,nota:''})
       }
     }
-setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:''}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
+    setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'',nota:'',insumos:[]}]);setProdRows([]);setMontoPagado('');setPagoEstado('pagado')
     localStorage.removeItem('gleet_borrador_venta')
-        onReload()
+    onReload()
   }
 
   async function saldar(id:string){
@@ -346,30 +355,73 @@ setClienteId('');setClienteBusqueda('');setServRows([{id:1,servicioId:'',monto:'
 
         <div style={{background:'#f9f9f9',borderRadius:8,padding:12,marginBottom:10}}>
           <div style={{fontSize:12,fontWeight:500,marginBottom:8}}>✂ Servicios realizados</div>
-          {servRows.map((r,i)=>(
-            <div key={r.id} style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'flex-end'}}>
-              <div style={{flex:2,minWidth:140}}>
-                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Servicio</label>
-                <select value={r.servicioId} onChange={e=>{
-                  const srv=servicios.find((s:any)=>s.id===e.target.value)
-                  setServRows(rows=>rows.map((x,j)=>j===i?{...x,servicioId:e.target.value,monto:srv?.precio_base||x.monto}:x))
-                }} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
-                  <option value="">-- selecciona --</option>
-                  {servicios.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
+          {servRows.map((r,i)=>{
+            const srvSel=servicios.find((s:any)=>s.id===r.servicioId)
+            const catInfo=categorias.find((c:any)=>c.tipo==='servicio'&&c.valor===srvSel?.categoria)
+            const esColor=catInfo?.usa_insumos||false
+            const insumosDisponibles=inventario.filter((p:any)=>p.tipo_producto==='insumo')
+            const costoInsumos=(r.insumos||[]).reduce((a:number,ins:any)=>{
+              const prod=inventario.find((p:any)=>p.id===ins.productoId)
+              if(!prod||!prod.contenido_total||!prod.precio_costo) return a
+              return a+(prod.precio_costo/prod.contenido_total)*(parseFloat(ins.cantidad)||0)
+            },0)
+            return(
+            <div key={r.id} style={{marginBottom:8,paddingBottom:8,borderBottom:i<servRows.length-1?'1px dashed #e0e0e0':'none'}}>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end'}}>
+                <div style={{flex:2,minWidth:140}}>
+                  <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Servicio</label>
+                  <select value={r.servicioId} onChange={e=>{
+                    const srv=servicios.find((s:any)=>s.id===e.target.value)
+                    setServRows(rows=>rows.map((x,j)=>j===i?{...x,servicioId:e.target.value,monto:srv?.precio_base||x.monto}:x))
+                  }} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                    <option value="">-- selecciona --</option>
+                    {servicios.map((s:any)=><option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </select>
+                </div>
+                <div style={{flex:1,minWidth:80}}>
+                  <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Monto ($)</label>
+                  <input type="number" value={r.monto} onChange={e=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,monto:e.target.value}:x))} placeholder="0" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+                </div>
+                <div style={{flex:2,minWidth:120}}>
+                  <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Notas (tinte, detalles...)</label>
+                  <input value={r.nota} onChange={e=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,nota:e.target.value}:x))} placeholder="Ej: Tinte N°7 Rubio" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+                </div>
+                {servRows.length>1&&<button onClick={()=>setServRows(rows=>rows.filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:18}}>×</button>}
               </div>
-              <div style={{flex:1,minWidth:80}}>
-                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Monto ($)</label>
-                <input type="number" value={r.monto} onChange={e=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,monto:e.target.value}:x))} placeholder="0" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
-              </div>
-              <div style={{flex:2,minWidth:120}}>
-                <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Notas (tinte, detalles...)</label>
-                <input value={r.nota} onChange={e=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,nota:e.target.value}:x))} placeholder="Ej: Tinte N°7 Rubio" style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
-              </div>
-              {servRows.length>1&&<button onClick={()=>setServRows(rows=>rows.filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:18}}>×</button>}
+              {esColor&&(
+                <div style={{background:'#FBEAF0',borderRadius:8,padding:10,marginTop:8}}>
+                  <div style={{fontSize:11,fontWeight:500,marginBottom:6,color:'#D4537E'}}>🧪 Insumos usados</div>
+                  {(r.insumos||[]).map((ins:any,k:number)=>{
+                    const prod=inventario.find((p:any)=>p.id===ins.productoId)
+                    return(
+                      <div key={k} style={{display:'flex',gap:8,marginBottom:6,alignItems:'flex-end'}}>
+                        <div style={{flex:2,minWidth:120}}>
+                          <select value={ins.productoId||''} onChange={e=>{
+                            const v=e.target.value
+                            setServRows(rows=>rows.map((x,j)=>j===i?{...x,insumos:x.insumos.map((y:any,l:number)=>l===k?{...y,productoId:v}:y)}:x))
+                          }} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
+                            <option value="">-- selecciona insumo --</option>
+                            {insumosDisponibles.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                          </select>
+                        </div>
+                        <div style={{flex:1,minWidth:80}}>
+                          <input type="number" value={ins.cantidad||''} onChange={e=>{
+                            const v=e.target.value
+                            setServRows(rows=>rows.map((x,j)=>j===i?{...x,insumos:x.insumos.map((y:any,l:number)=>l===k?{...y,cantidad:v}:y)}:x))
+                          }} placeholder={prod?.unidad_medida==='gr'?'gramos':prod?.unidad_medida==='ml'?'ml':'cantidad'} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}/>
+                        </div>
+                        <button onClick={()=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,insumos:x.insumos.filter((_:any,l:number)=>l!==k)}:x))} style={{background:'none',border:'none',cursor:'pointer',color:'#ccc',fontSize:18}}>×</button>
+                      </div>
+                    )
+                  })}
+                  <button onClick={()=>setServRows(rows=>rows.map((x,j)=>j===i?{...x,insumos:[...(x.insumos||[]),{productoId:'',cantidad:''}]}:x))} style={{fontSize:11,color:'#D4537E',background:'none',border:'1px dashed #D4537E',borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>+ Agregar insumo</button>
+                  {costoInsumos>0&&<div style={{fontSize:11,color:'#854F0B',marginTop:6}}>Costo estimado de insumos: {fmt(costoInsumos)}</div>}
+                </div>
+              )}
             </div>
-          ))}
-          <button onClick={()=>setServRows(r=>[...r,{id:Date.now(),servicioId:'',monto:'',nota:''}])} style={{fontSize:11,color:'#1a1a1a',background:'none',border:'1px dashed #888',borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>+ Agregar servicio</button>
+            )
+          })}
+          <button onClick={()=>setServRows(r=>[...r,{id:Date.now(),servicioId:'',monto:'',nota:'',insumos:[]}])} style={{fontSize:11,color:'#1a1a1a',background:'none',border:'1px dashed #888',borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>+ Agregar servicio</button>
         </div>
 
         <div style={{background:'#f9f9f9',borderRadius:8,padding:12,marginBottom:10}}>
@@ -1687,6 +1739,7 @@ function CategoriasTab({categorias,onReload}:any){
   const [tipo,setTipo]=useState('servicio')
   const [nombre,setNombre]=useState('')
   const [color,setColor]=useState('#888780')
+  const [usaInsumos,setUsaInsumos]=useState(false)
   const [editando,setEditando]=useState<any>(null)
 
   function slug(s:string){
@@ -1696,14 +1749,14 @@ function CategoriasTab({categorias,onReload}:any){
   async function agregar(){
     if(!nombre){alert('Ingresa el nombre de la categoría');return}
     const valor=tipo==='servicio'?slug(nombre):nombre
-    await supabase.from('categorias').insert({tipo,valor,nombre,color:tipo==='servicio'?color:null})
-    setNombre('');setColor('#888780')
+    await supabase.from('categorias').insert({tipo,valor,nombre,color:tipo==='servicio'?color:null,usa_insumos:tipo==='servicio'?usaInsumos:false})
+    setNombre('');setColor('#888780');setUsaInsumos(false)
     onReload()
   }
 
   async function guardarEdicion(){
     if(!editando) return
-    await supabase.from('categorias').update({nombre:editando.nombre,color:editando.color}).eq('id',editando.id)
+    await supabase.from('categorias').update({nombre:editando.nombre,color:editando.color,usa_insumos:editando.usa_insumos||false}).eq('id',editando.id)
     setEditando(null);onReload()
   }
 
@@ -1720,7 +1773,7 @@ function CategoriasTab({categorias,onReload}:any){
     <div>
       <div style={{background:'white',border:'1px solid #e0e0e0',borderRadius:12,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Nueva categoría</div>
-        <div style={{display:'grid',gridTemplateColumns:tipo==='servicio'?'1fr 1fr 1fr':'1fr 1fr',gap:12,alignItems:'end'}}>
+          <div style={{display:'grid',gridTemplateColumns:tipo==='servicio'?'1fr 1fr 1fr':'1fr 1fr',gap:12,alignItems:'end'}}>
           <div>
             <label style={{fontSize:11,color:'#666',display:'block',marginBottom:3}}>Aplica a</label>
             <select value={tipo} onChange={e=>setTipo(e.target.value)} style={{width:'100%',padding:'6px 9px',border:'1px solid #ddd',borderRadius:8,fontSize:12}}>
@@ -1739,7 +1792,14 @@ function CategoriasTab({categorias,onReload}:any){
             </div>
           )}
         </div>
+        {tipo==='servicio'&&(
+          <label style={{display:'flex',alignItems:'center',gap:6,marginTop:10,fontSize:12,color:'#666',cursor:'pointer'}}>
+            <input type="checkbox" checked={usaInsumos} onChange={e=>setUsaInsumos(e.target.checked)}/>
+            ¿Esta categoría usa insumos? (mostrará campos para registrar productos usados en Ventas)
+          </label>
+        )}
         <button onClick={agregar} style={{marginTop:12,padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>+ Agregar categoría</button>
+
       </div>
 
       {editando&&(
@@ -1760,6 +1820,12 @@ function CategoriasTab({categorias,onReload}:any){
               </div>
             )}
           </div>
+          {editando.tipo==='servicio'&&(
+            <label style={{display:'flex',alignItems:'center',gap:6,marginTop:2,marginBottom:10,fontSize:12,color:'#666',cursor:'pointer'}}>
+              <input type="checkbox" checked={editando.usa_insumos||false} onChange={e=>setEditando({...editando,usa_insumos:e.target.checked})}/>
+              ¿Esta categoría usa insumos?
+            </label>
+          )}
           <button onClick={guardarEdicion} style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1a1a1a',color:'white',cursor:'pointer',fontSize:12}}>✓ Guardar cambios</button>
         </div>
       )}
