@@ -51,10 +51,10 @@ export default function Dashboard() {
   }
 
   const TABS = [
-    ['inicio','Inicio'],['ventas','Ventas'],['historial','Historial'],['agenda','Agenda'],
-    ['clientas','Clientas'],['proveedores','Proveedores'],['servicios','Servicios'],
-    ['inventario','Inventario'],['categorias','Categorías'],['topclientes','Top Clientas'],['reportes','Reportes']
-  ]
+  ['inicio','Inicio'],['agenda','Agenda'],['ventas','Ventas'],['historial','Historial'],
+  ['clientas','Clientas'],['proveedores','Proveedores'],['servicios','Servicios'],
+  ['inventario','Inventario'],['categorias','Categorías'],['topclientes','Top Clientas'],['reportes','Reportes']
+]
 
   return (
     <div style={{fontFamily:'system-ui,sans-serif',minHeight:'100vh',background:'#f9f9f9'}}>
@@ -374,7 +374,11 @@ useEffect(()=>{
     setEditando(null);onReload()
   }
 
-  const listaVentas=filtro?ventas.filter((v:any)=>v.tipo===filtro):ventas
+  const listaVentas=(filtro?ventas.filter((v:any)=>v.tipo===filtro):ventas).slice().sort((a:any,b:any)=>{
+  const fa=a.grupos_venta?.fecha||''
+  const fb=b.grupos_venta?.fecha||''
+  return fb.localeCompare(fa)
+})
 
   return(
     <div>
