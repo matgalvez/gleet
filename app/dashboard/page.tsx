@@ -100,6 +100,8 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
   })
   const wS=vSem.filter((v:any)=>v.tipo==='servicio').reduce((a:number,v:any)=>a+v.monto,0)
   const wP=vSem.filter((v:any)=>v.tipo==='producto').reduce((a:number,v:any)=>a+v.monto,0)
+  const costoSem=vSem.reduce((a:number,v:any)=>a+costoVenta(v),0)
+  const gananciaSem=wS+wP-costoSem
   const deudas=grupos.filter((g:any)=>g.estado!=='pagado')
   const diasDesde=(ds:string)=>Math.floor((new Date().getTime()-new Date(ds+'T12:00:00').getTime())/(1000*60*60*24))
   const deudasViejas=deudas.filter((g:any)=>diasDesde(g.fecha)>30)
@@ -120,6 +122,21 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
   })
 
   const proximas=citas.filter((c:any)=>c.fecha>=hoy).slice(0,5)
+  function costoVenta(v:any){
+    if(v.tipo==='servicio'){
+      return (v.insumos_usados||[]).reduce((a:number,ins:any)=>{
+        const prod=inventario.find((p:any)=>p.id===ins.productoId)
+        if(!prod||!prod.contenido_total||!prod.precio_costo) return a
+        return a+(prod.precio_costo/prod.contenido_total)*(parseFloat(ins.cantidad)||0)
+      },0)
+    }
+    if(v.tipo==='producto'){
+      const prod=inventario.find((p:any)=>p.id===v.producto_id)
+      return (prod?.precio_costo||0)*(v.cantidad||1)
+    }
+    return 0
+  }
+
 
   return(
     <div>
@@ -135,6 +152,16 @@ function InicioTab({ventas,grupos,citas,inventario,hoy,fmt,fmtF,MESES,anoActual,
             <div style={{fontSize:20,fontWeight:500}}>{v}</div>
           </div>
         ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8,marginBottom:12}}>
+        <div style={{background:'#FAEEDA',borderRadius:8,padding:12}}>
+          <div style={{fontSize:11,color:'#854F0B'}}>Costo insumos/productos semana</div>
+          <div style={{fontSize:20,fontWeight:500,color:'#854F0B'}}>{fmt(costoSem)}</div>
+        </div>
+        <div style={{background:'#EAF3DE',borderRadius:8,padding:12}}>
+          <div style={{fontSize:11,color:'#3B6D11'}}>Ganancia real semana</div>
+          <div style={{fontSize:20,fontWeight:500,color:'#3B6D11'}}>{fmt(gananciaSem)}</div>
+        </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
         <div style={{background:'#f0f0f0',borderRadius:8,padding:12}}>
