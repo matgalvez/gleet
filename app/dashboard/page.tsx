@@ -53,7 +53,7 @@ export default function Dashboard() {
   const TABS = [
   ['inicio','Inicio'],['agenda','Agenda'],['ventas','Ventas'],['historial','Historial'],
   ['clientas','Clientas'],['proveedores','Proveedores'],['servicios','Servicios'],
-  ['inventario','Inventario'],['categorias','Categorías'],['topclientes','Top Clientas'],['reportes','Reportes']
+  ['inventario','Inventario'],['categorias','Categorías'],['reportes','Reportes'],['topclientes','Top Clientas']
 ]
 
   return (
