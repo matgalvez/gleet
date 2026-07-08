@@ -808,8 +808,9 @@ function AgendaTab({citas,clientes,servicios,onReload,hoy}:any){
   const CAT_COLOR:any={corte:'#534AB7',color:'#D4537E',decoloracion:'#BA7517',alisado:'#0F6E56',otro:'#888780'}
   const CAT_BG:any={corte:'#EEEDFE',color:'#FBEAF0',decoloracion:'#FAEEDA',alisado:'#E1F5EE',otro:'#F1EFE8'}
   const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+  const ROW_HEIGHT=48
   const HORAS:string[]=[]
-  for(let h=8;h<=23;h++){HORAS.push(String(h).padStart(2,'0')+':00');if(h<23)HORAS.push(String(h).padStart(2,'0')+':30')}
+for(let h=8;h<=23;h++){HORAS.push(String(h).padStart(2,'0')+':00')}
   const durFmt=(m:number)=>m<60?m+'min':m%60===0?(m/60)+'h':Math.floor(m/60)+'h'+m%60
   const dateStr=(d:Date)=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
   const getLunes=(off:number)=>{const d=new Date();const dia=d.getDay();d.setDate(d.getDate()-dia+(dia===0?-6:1)+off*7);d.setHours(0,0,0,0);return d}
@@ -873,46 +874,74 @@ function AgendaTab({citas,clientes,servicios,onReload,hoy}:any){
           ))}
         </div>
         <div style={{overflowY:'auto',maxHeight:600,border:'1px solid #e0e0e0',borderRadius:8}}>
-          <div style={{position:'sticky',top:0,zIndex:10,display:'grid',gridTemplateColumns:'48px repeat(7,1fr)',background:'white',borderBottom:'1px solid #e0e0e0'}}>
-            <div style={{background:'#f9f9f9',borderRight:'1px solid #e0e0e0'}}></div>
-            {dias.map(d=>{const ds=dateStr(d);const isH=ds===hoyReal;return(
-              <div key={ds} style={{borderRight:'1px solid #e0e0e0',padding:'8px 4px',textAlign:'center',background:isH?'#f9f7f2':'white'}}>
-                <div style={{fontSize:11,color:'#666'}}>{DIAS[d.getDay()]}</div>
-                <div style={{fontSize:17,fontWeight:500,width:30,height:30,borderRadius:'50%',background:isH?'#1a1a1a':'transparent',color:isH?'white':'inherit',display:'flex',alignItems:'center',justifyContent:'center',margin:'1px auto 0'}}>{d.getDate()}</div>
-              </div>
-            )})}
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'48px repeat(7,1fr)'}}>
-            {HORAS.map((hora,hi)=>[
-              <div key={'h'+hi} style={{borderRight:'1px solid #e0e0e0',borderBottom:'1px solid #f0f0f0',padding:'0 5px',fontSize:10,color:'#999',height:48,display:'flex',alignItems:'flex-start',paddingTop:4,background:'#f9f9f9'}}>{hora}</div>,
-              ...dias.map(d=>{
-                const ds=dateStr(d);const isH=ds===hoyReal
-                const cx=citas.filter((c:any)=>c.fecha===ds&&c.hora===hora)
-                const slotMin=parseInt(hora)*60+(hora.includes(':30')?30:0)
-                const showLine=isH&&ahora>=slotMin&&ahora<slotMin+30
-                const pct=showLine?Math.round(((ahora-slotMin)/30)*100):0
-                return(
-                  <div key={ds+hora} onClick={()=>{setFecha(ds);setHora(hora);setShowForm(true);setDetalle(null)}}
-                    style={{borderRight:'1px solid #e0e0e0',borderBottom:'1px solid #f0f0f0',padding:2,minHeight:48,height:48,cursor:'pointer',background:isH?'#fdfcfa':'white',position:'relative'}}
-                    onMouseEnter={e=>(e.currentTarget.style.background=isH?'#f5f2ec':'#f9f9f9')}
-                    onMouseLeave={e=>(e.currentTarget.style.background=isH?'#fdfcfa':'white')}>
-                    {cx.map((c:any)=>{
-                      const cat=c.servicios?.categoria||'otro'
-                      return(
-                        <div key={c.id} onClick={e=>{e.stopPropagation();setDetalle(c);setShowForm(false)}}
-                          style={{borderLeft:`3px solid ${CAT_COLOR[cat]}`,background:CAT_BG[cat],padding:'2px 4px',marginBottom:2,fontSize:10,cursor:'pointer',overflow:'hidden'}}>
-                          <div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:CAT_COLOR[cat]}}>{c.clientes?.nombre||'—'}</div>
-                          <div style={{fontSize:9,color:CAT_COLOR[cat],opacity:.8}}>{c.servicios?.nombre||'—'}</div>
-                        </div>
-                      )
-                    })}
-                    {showLine&&<div style={{position:'absolute',left:0,right:0,height:2,background:'#E24B4A',top:`${pct}%`,zIndex:5}}><div style={{position:'absolute',left:-2,width:8,height:8,borderRadius:'50%',background:'#E24B4A',top:-3}}></div></div>}
-                  </div>
-                )
-              })
-            ])}
-          </div>
+  <div style={{position:'sticky',top:0,zIndex:10,display:'grid',gridTemplateColumns:'48px repeat(7,1fr)',background:'white',borderBottom:'1px solid #e0e0e0'}}>
+    <div style={{background:'#f9f9f9',borderRight:'1px solid #e0e0e0'}}></div>
+    {dias.map(d=>{const ds=dateStr(d);const isH=ds===hoyReal;return(
+      <div key={ds} style={{borderRight:'1px solid #e0e0e0',padding:'8px 4px',textAlign:'center',background:isH?'#f9f7f2':'white'}}>
+        <div style={{fontSize:11,color:'#666'}}>{DIAS[d.getDay()]}</div>
+        <div style={{fontSize:17,fontWeight:500,width:30,height:30,borderRadius:'50%',background:isH?'#1a1a1a':'transparent',color:isH?'white':'inherit',display:'flex',alignItems:'center',justifyContent:'center',margin:'1px auto 0'}}>{d.getDate()}</div>
+      </div>
+    )})}
+  </div>
+  <div style={{display:'grid',gridTemplateColumns:'48px repeat(7,1fr)'}}>
+    <div>
+      {HORAS.map((hora,hi)=>(
+        <div key={hi} style={{borderRight:'1px solid #e0e0e0',borderBottom:'1px solid #f0f0f0',padding:'0 5px',fontSize:10,color:'#999',height:ROW_HEIGHT,display:'flex',alignItems:'flex-start',paddingTop:4,background:'#f9f9f9'}}>{hora}</div>
+      ))}
+    </div>
+    {dias.map(d=>{
+  const ds=dateStr(d);const isH=ds===hoyReal
+  const cx=citas.filter((c:any)=>c.fecha===ds)
+  const inicioGrid=8*60
+
+  // calcular overlaps: para cada cita, ver con cuántas se solapa y qué columna le toca
+  const citasConLayout=cx.map((c:any)=>{
+    const [hh,mm]=c.hora.split(':').map(Number)
+    const start=hh*60+mm
+    const end=start+(c.duracion||60)
+    return{...c,start,end}
+  }).sort((a:any,b:any)=>a.start-b.start)
+
+  citasConLayout.forEach((c:any,i:number)=>{
+    const solapadas=citasConLayout.filter((o:any)=>o.start<c.end&&o.end>c.start)
+    c.grupoTotal=solapadas.length
+    c.grupoIndex=solapadas.findIndex((o:any)=>o.id===c.id)
+  })
+
+  return(
+    <div key={ds} style={{position:'relative',borderRight:'1px solid #e0e0e0'}}>
+      {HORAS.map((hora,hi)=>(
+        <div key={hi} onClick={()=>{setFecha(ds);setHora(hora);setShowForm(true);setDetalle(null)}}
+          style={{borderBottom:'1px solid #f0f0f0',height:ROW_HEIGHT,cursor:'pointer',background:isH?'#fdfcfa':'white'}}
+          onMouseEnter={e=>(e.currentTarget.style.background=isH?'#f5f2ec':'#f9f9f9')}
+          onMouseLeave={e=>(e.currentTarget.style.background=isH?'#fdfcfa':'white')}>
         </div>
+      ))}
+      {isH&&ahora>=inicioGrid&&ahora<=23*60+60&&(
+        <div style={{position:'absolute',left:0,right:0,height:2,background:'#E24B4A',top:`${((ahora-inicioGrid)/60)*ROW_HEIGHT}px`,zIndex:5}}>
+          <div style={{position:'absolute',left:-2,width:8,height:8,borderRadius:'50%',background:'#E24B4A',top:-3}}></div>
+        </div>
+      )}
+      {citasConLayout.map((c:any)=>{
+        const cat=c.servicios?.categoria||'otro'
+        const top=((c.start-inicioGrid)/60)*ROW_HEIGHT
+        const height=Math.max(20,((c.duracion||60)/60)*ROW_HEIGHT-2)
+        const ancho=100/c.grupoTotal
+        const izq=ancho*c.grupoIndex
+        return(
+          <div key={c.id} onClick={e=>{e.stopPropagation();setDetalle(c);setShowForm(false)}}
+            style={{position:'absolute',left:`calc(${izq}% + 2px)`,width:`calc(${ancho}% - 4px)`,top,height,borderLeft:`3px solid ${CAT_COLOR[cat]}`,background:CAT_BG[cat],padding:'2px 4px',cursor:'pointer',overflow:'hidden',borderRadius:3,zIndex:2,lineHeight:1.1}}>
+            <div style={{fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:CAT_COLOR[cat],fontSize:height<32?9:10}}>{c.clientes?.nombre||'—'}</div>
+            <div style={{fontSize:height<32?8:9,color:CAT_COLOR[cat],opacity:.8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.servicios?.nombre||'—'} · {durFmt(c.duracion||60)}</div>
+          </div>
+
+        )
+      })}
+    </div>
+  )
+})}
+  </div>
+</div>
       </div>
 
       {detalle&&(
